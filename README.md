@@ -52,3 +52,14 @@ flowchart TD
 ## Remarks
 
 - Modify prefix in `environment.yml`.
+
+## Setup
+
+Run the coomands below to create and activate the environment.
+
+
+```sh
+conda env create -f environment.yml -n pumle-env
+conda activate pumle-env
+``` 
+
