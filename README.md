@@ -63,3 +63,8 @@ conda env create -f environment.yml -n pumle-env
 conda activate pumle-env
 ``` 
 
+## Running
+
+The code will run based on the setup.ini parameters. To change the parameters you can consult the **GLOSSARY.md** and check what each parameter is.
+
+
