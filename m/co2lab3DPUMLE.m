@@ -1,4 +1,5 @@
 %% co2lab3DPUMLE
+%
 % Base script to run CO2 injection simulations from 
 % preset values defined in PUMLE configuration file
 
@@ -12,6 +13,8 @@ aux = @(base) load(fullfile('./',strcat(base,'ParamsPUMLE','.mat')));
 
  
 for s = 1:length(sections), PARAMS.(sections{s}) = aux(sections{s}); end
+
+fprintf('[MATLAB] PUMLE''s .mat files loaded for simulation.\n')
 
 
 %% General Settings
