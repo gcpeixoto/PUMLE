@@ -1,12 +1,23 @@
 %% co2lab3DPUMLE
 %
 % Base script to run CO2 injection simulations from 
-% preset values defined in PUMLE configuration file
+% preset values defined in PUMLE configuration file.
+%
+% This script is based on MRST::co2lab-ve::synthetic3DExample.m. 
+% and prepared to run the TwoPhaseWaterGasModel for modelling a
+% CO2-H2O system. CO2 is injected into a brine filled 3D reservoir.
+% The injection and migration times are controlled by user in the
+% simulation setup. CO2 properties are taken from co2lab's tabulated 
+% co2props(). Brine properties are from literature.
+%
+% Adaption made by Gustavo Oliveira
+% TRIL Lab | CI-UFPB | Brazil
 
 %% Loading structs of input parameters from path
 
 sections = {'Paths','PreProcessing', 'Grid', 'Fluid', ...
-    'InitialConditions', 'BoundaryConditions', 'Wells', 'Schedule'};
+    'InitialConditions', 'BoundaryConditions', 'Wells', ...
+    'Schedule', 'MATLAB'};
 
 % auxiliary 
 aux = @(base) load(fullfile('./',strcat(base,'ParamsPUMLE','.mat')));
@@ -19,22 +30,33 @@ fprintf('[MATLAB] PUMLE''s .mat files loaded for simulation.\n')
 
 %% General Settings
 
-mrstModule add coarsegrid co2lab
+% Run MRST startup (for command line)
+run(fullfile(PARAMS.MATLAB.mrst_root,'startup.m'));
+
+% Load modules
+mrstModule add co2lab ad-core ad-props ad-blackoil;
 mrstVerbose off
 
+% Case name
 case_name = PARAMS.PreProcessing.case_name;
 
 
 %% Grid and rock models
 
-grdecl = readGRDECL(PARAMS.Grid.file_path,'repairZCORN',...
-    PARAMS.Grid.repair_flag);
+grdecl = readGRDECL(PARAMS.Grid.file_path);
 
 % SI
 usys = getUnitSystem('METRIC');
 grdecl = convertInputUnits(grdecl, usys);
 
-G = processGRDECL(grdecl);
+% Convert to logical
+if strcmp(PARAMS.Grid.repair_flag,'true') || strcmp(PARAMS.Grid.repair_flag,'True')
+    PARAMS.Grid.repair_flag = true;
+else
+    PARAMS.Grid.repair_flag = false;
+end
+
+G = processGRDECL(grdecl,'RepairZCORN',PARAMS.Grid.repair_flag);
 G = computeGeometry(G);
 
 rock = grdecl2Rock(grdecl, G.cells.indexMap);
@@ -119,39 +141,6 @@ Others
 P_r = PARAMS.Fluid.pres_ref; % reference pressure [MPa]
 T_r = PARAMS.Fluid.temp_ref; % reference temperature [º C]
 
-co2     = CO2props(); % sampled tables of co2 fluid properties (MRST)
-p_ref   = P_r * mega * Pascal; % reference pressure
-t_ref   = T_r + 273.15; % reference temperature, in Kelvin
-rhoc    = co2.rho(p_ref, t_ref); % co2 density at ref. press/temp
-cf_co2  = co2.rhoDP(p_ref, t_ref) / rhoc; % co2 compressibility
-cf_wat  = 0; % brine compressibility (zero)
-cf_rock = PARAMS.Fluid.cp_rock / barsa; % rock compressibility
-muw     = PARAMS.Fluid.mu_brine * Pascal * second; % brine viscosity
-muco2   = co2.mu(p_ref, t_ref) * Pascal * second; % co2 viscosity
-
-mrstModule add ad-props; % The module where initSimpleADIFluid is found
-
-% Use function 'initSimpleADIFluid' to make a simple fluid object
-fluid = initSimpleADIFluid('phases', 'WG'           , ...
-                           'mu'  , [muw, muco2]     , ...
-                           'rho' , [rhow, rhoc]     , ...
-                           'pRef', p_ref            , ...
-                           'c'   , [cf_wat, cf_co2] , ... 
-                           'cR'  , cf_rock          , ...                           
-                           'n'   , [2 2]);
-
-% Change relperm curves
-srw = PARAMS.Fluid.srw;
-src = PARAMS.Fluid.src;
-fluid.krW = @(s) fluid.krW(max((s-srw)./(1-srw), 0));
-fluid.krG = @(s) fluid.krG(max((s-src)./(1-src), 0));
-
-% Add capillary pressure curve
-pe = PARAMS.Fluid.pe * kilo * Pascal;
-pcWG = @(sw) pe * sw.^(-1/2);
-fluid.pcWG = @(sg) pcWG(max((1-sg-srw)./(1-srw), 1e-5)); %@@
-
-
 %% Brine saturation
 
 %{
@@ -219,7 +208,7 @@ X_H2O = 1 - X_NaCl; %
 % coefficients
 [m0, m1, m2, m3, m4, m5] = deal(58443, 23.772, 0.018639, -1.9687e-6, -1.5259e-5, 5.5058e-8);
 
-rho_NaCl_0 = m0 / (m1 + m2*T_r + m3 * T_r^2);
+rho_NaCl_0 = m0 / (m1 + m2*T_r + m3*T_r^2);
 c_NaCl = m4 + m5 * T_r;
 
 P_b = 10*P_r; % MPa to bar : 1 MPa = 10 bar
@@ -229,6 +218,41 @@ rho_H20 = 1000; % [kg/m3]
 
 % brine density
 rhow = rho_H20*X_H2O + rho_NaCl*X_NaCl; % density of brine 
+
+
+co2     = CO2props(); % sampled tables of co2 fluid properties (MRST)
+p_ref   = P_r * mega * Pascal; % reference pressure
+t_ref   = T_r + 273.15; % reference temperature, in Kelvin
+rhoc    = co2.rho(p_ref, t_ref); % co2 density at ref. press/temp
+cf_co2  = co2.rhoDP(p_ref, t_ref) / rhoc; % co2 compressibility
+cf_wat  = 0; % brine compressibility (zero)
+cf_rock = PARAMS.Fluid.cp_rock / barsa; % rock compressibility
+muw     = PARAMS.Fluid.mu_brine * Pascal * second; % brine viscosity
+muco2   = co2.mu(p_ref, t_ref) * Pascal * second; % co2 viscosity
+
+
+
+mrstModule add ad-props; % The module where initSimpleADIFluid is found
+
+% Use function 'initSimpleADIFluid' to make a simple fluid object
+fluid = initSimpleADIFluid('phases', 'WG'           , ...
+                           'mu'  , [muw, muco2]     , ...
+                           'rho' , [rhow, rhoc]     , ...
+                           'pRef', p_ref            , ...
+                           'c'   , [cf_wat, cf_co2] , ... 
+                           'cR'  , cf_rock          , ...                           
+                           'n'   , [2 2]);
+
+% Change relperm curves
+srw = PARAMS.Fluid.srw;
+src = PARAMS.Fluid.src;
+fluid.krW = @(s) fluid.krW(max((s-srw)./(1-srw), 0));
+fluid.krG = @(s) fluid.krG(max((s-src)./(1-src), 0));
+
+% Add capillary pressure curve
+pe = PARAMS.Fluid.pe * kilo * Pascal;
+pcWG = @(sw) pe * sw.^(-1/2);
+fluid.pcWG = @(sg) pcWG(max((1-sg-srw)./(1-srw), 1e-5)); %@@
 
 
 %% Initial state
@@ -251,7 +275,7 @@ origW = {NA1A,NA2,NA3D,RJS19};
 
 % Perforation layering
 min_layer = 6;
-max_layer = 11;
+max_layer = 12;
 
 % reverse mapping
 Ind = nan(prod(G.cartDims),1);
@@ -279,13 +303,12 @@ inj_rate = PARAMS.Wells.CO2_inj * meter^3 / year;
 % Start with empty set of wells
 W = [];
 
-% Add a well to the set
-W = addWell(W, G, rock, cW{1}, ...
-            'refDepth', G.cells.centroids(cW{1}, 3), ... % BHP reference depth
+% Add wells
+W = addWell(W, G, rock, cW{2}, ...
+            'refDepth', G.cells.centroids(cW{2}, 3), ... % BHP reference depth
             'type', 'rate', ...  % inject at constant rate
             'val', inj_rate, ... % volumetric injection rate
             'comp_i', [0 1]);    % inject CO2, not water
-
 
 
 %plotGrid(G, 'facecolor', 'none', 'edgealpha', 0.1);
@@ -324,8 +347,9 @@ schedule.control    = struct('W', W, 'bc', bc);
 schedule.control(2) = struct('W', W, 'bc', bc);
 schedule.control(2).W.val = 0;
 
+
 dT = rampupTimesteps(PARAMS.Schedule.injection_time * year, ...
-    PARAMS.Schedule.injection_timestep_rampup * year);  % injection with increasing timestep size
+    PARAMS.Schedule.injection_timestep_rampup * year, 4);  % injection with increasing timestep size
 
 schedule.step.val = [dT; ... 
                     repmat(PARAMS.Schedule.migration_time * year, ...
