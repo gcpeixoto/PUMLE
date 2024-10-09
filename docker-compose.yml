@@ -1,0 +1,7 @@
+services:
+  octave_service:
+    build: .
+    container_name: octave_python_container
+    stdin_open: true
+    tty: true
+    command: python3 src/main.py
