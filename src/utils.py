@@ -182,6 +182,8 @@ def export_to_matlab(PARAMS) -> None:
     
 def run_matlab_batch(PARAMS):    
     import subprocess
+
+    # We should start using oct2py lib to do this process for us
     
     
     print(os.getcwd())
