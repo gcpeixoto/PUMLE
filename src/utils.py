@@ -184,23 +184,17 @@ def run_matlab_batch(PARAMS):
     import subprocess
     
     
-    mfile = PUMLE_ROOT + '/m'
-    
-    # Change directory to Matlab folder
-    print(mfile)
-    os.chdir(mfile)
-
     print(os.getcwd())
 
     # Command to run matlab script in batch mode without Java
-    cmd = f' --silent --eval co2lab3DPUMLE'
+    cmd = f' --silent --eval ./app/m/co2lab3DPUMLE.m'
     
     try:
-        out = subprocess.run("octave" + cmd, shell=False, check=True)
+        out = subprocess.run("/usr/bin/octave" + cmd, shell=True, check=True)
         print(f"[PUMLE] Calling Matlab in batch mode: {out.returncode}")
         
     except subprocess.CalledProcessError as e:
         print(f"[PUMLE] exception raise: {e}")
  
     # Change back to root folder
-    os.chdir(os.path.join(PUMLE_ROOT,"ipynb"))
+    os.chdir(os.path.join(PUMLE_ROOT))

@@ -11,8 +11,10 @@ RUN apt-get update && apt-get install -y \
     libhdf5-dev \
     && apt-get clean
 
-# Definir o diretório de trabalho
 WORKDIR /app
+
+ADD requirements.txt /app/requirements.txt
+RUN pip3 install -r requirements.txt
 
 # Baixar e instalar o MRST
 RUN wget https://www.sintef.no/globalassets/project/mrst/mrst-2024a.zip -O mrst.zip && \
@@ -29,12 +31,12 @@ ENV PATH="/opt/miniconda/bin:${PATH}"
 RUN mkdir src
 # Copiar o script Python e o script Octave para o contêiner
 COPY m/co2lab3DPUMLE.m /app/m/co2lab3DPUMLE.m
-COPY src/main.py /app/src/main.py
-COPY src/utils.py /app/src/utils.py
+COPY src/ /app/src/
 COPY setup.ini /app/setup.ini
 
-ADD requirements.txt /app/requirements.txt
-RUN pip3 install -r requirements.txt
 
 # Comando padrão para rodar o script Python
-CMD ["python3", "src/main.py"]
+
+ENTRYPOINT ["tail", "-f", "/dev/null"]
+
+# CMD ["python3", "src/main.py"]
