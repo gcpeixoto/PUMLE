@@ -30,9 +30,10 @@ ENV PATH="/opt/miniconda/bin:${PATH}"
 
 RUN mkdir src
 # Copiar o script Python e o script Octave para o contêiner
-COPY m/co2lab3DPUMLE.m /app/m/co2lab3DPUMLE.m
+COPY m/co2lab3DPUMLE.m /app/mrst/co2lab3DPUMLE.m
 COPY src/ /app/src/
 COPY setup.ini /app/setup.ini
+COPY benchmark/ /app/mrst/benchmark
 
 
 # Comando padrão para rodar o script Python

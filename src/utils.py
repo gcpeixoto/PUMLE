@@ -175,28 +175,32 @@ def export_to_matlab(PARAMS) -> None:
     for k in PARAMS.keys():    
         k_formated = k.replace('-','').replace(' ','')
         basename = f"{k_formated}ParamsPUMLE.mat"
-        mroot = os.path.join(PUMLE_ROOT,'m')
+        mroot = os.path.join(PUMLE_ROOT,'mrst')
         fname = os.path.join(mroot,basename)
         savemat(fname, PARAMS[k], appendmat=True)
         print(f'[PUMLE] Matlab file \'{basename}\' exported to \'{mroot}\'.')
     
 def run_matlab_batch(PARAMS):    
     import subprocess
+    
+    os.chdir(PUMLE_ROOT+"/mrst")
 
-    # We should start using oct2py lib to do this process for us
-    
-    
     print(os.getcwd())
 
-    # Command to run matlab script in batch mode without Java
-    cmd = f' --silent --eval ./app/m/co2lab3DPUMLE.m'
-    
+    # Run mrst
     try:
-        out = subprocess.run("/usr/bin/octave" + cmd, shell=True, check=True)
+        out = subprocess.run("/usr/bin/octave --silent --no-gui --verbose --eval startup", shell=True, check=True)
         print(f"[PUMLE] Calling Matlab in batch mode: {out.returncode}")
-        
     except subprocess.CalledProcessError as e:
         print(f"[PUMLE] exception raise: {e}")
- 
+
+    print(os.getcwd())
+
+    try:
+        out = subprocess.run("/usr/bin/octave --silent --no-gui --verbose --eval co2lab3DPUMLE", shell=True, check=True)
+        print(f"[PUMLE] Calling Matlab in batch mode: {out.returncode}")
+    except subprocess.CalledProcessError as e:
+        print(f"[PUMLE] exception raise: {e}")
     # Change back to root folder
-    os.chdir(os.path.join(PUMLE_ROOT))
+    os.chdir(PUMLE_ROOT)
+    print(os.getcwd())
