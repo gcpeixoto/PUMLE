@@ -1,7 +1,7 @@
-*.asv
-*.mat
-*.log
-sim/
-temp/
-.DS_Store
-.ipynb_checkpoints/
+matlab/mrst-2024a/*.asv
+matlab/mrst-2024a/*.mat
+matlab/mrst-2024a/*.log
+matlab/mrst-2024a/sim/
+matlab/mrst-2024a/temp/
+matlab/mrst-2024a/.DS_Store
+matlab/mrst-2024a/.ipynb_checkpoints/
