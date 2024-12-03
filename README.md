@@ -67,4 +67,11 @@ conda activate pumle-env
 
 The code will run based on the setup.ini parameters. To change the parameters you can consult the **GLOSSARY.md** and check what each parameter is.
 
+Start the simulation with the following command:
+
+```sh
+cd matlab/mrst-2024a/
+python main.py
+```
+
 
