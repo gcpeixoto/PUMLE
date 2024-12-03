@@ -15,6 +15,7 @@
 
 %% Loading structs of input parameters from path
 
+disp("[MATLAB] PUMLE start");
 sections = {'Paths','PreProcessing', 'Grid', 'Fluid', ...
     'InitialConditions', 'BoundaryConditions', 'Wells', ...
     'Schedule'};
@@ -25,7 +26,7 @@ aux = @(base) load(fullfile('./',strcat(base,'ParamsPUMLE','.mat')));
  
 for s = 1:length(sections), PARAMS.(sections{s}) = aux(sections{s}); end
 
-fprintf('[MATLAB] PUMLE''s .mat files loaded for simulation.\n')
+disp('[MATLAB] PUMLE''s .mat files loaded for simulation.\n')
 
 
 %% General Settings
@@ -351,15 +352,16 @@ schedule.step.val = [dT; ...
 % Specifying which control to use for each timestep.
 schedule.step.control = [ones(numel(dT), 1); ones(str2double(PARAMS.Schedule.migration_timestep),1)*2];
 
-
+disp("Start model")
 %% Model
 model = TwoPhaseWaterGasModel(G, rock, fluid, 0, 0);
 
 %% Simulate
 
+disp("Start simulation")
 [wellSol, states] = simulateScheduleAD(initState, model, schedule);
 
-disp("ROCKING")
+disp("Ends simulation")
 
 % %% Visualization
 
@@ -389,4 +391,4 @@ save(fullfile("./",...
             PARAMS.Paths.PUMLE_RESULTS,...
             strcat('wellSols_',PARAMS.PreProcessing.case_name,'_1','.mat')));
 
-fprintf('[MATLAB] Simulation completed.\n')
+disp('[MATLAB] Simulation completed.')

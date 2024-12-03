@@ -186,7 +186,7 @@ def run_matlab_batch(PARAMS):
         try:
             # Run the MATLAB script using the subprocess module
             result = subprocess.run(
-                ["matlab", "-nojvm", "-batch",script_name],
+                ["matlab", "-nojvm", "-batch", script_name],
                 check=True,
                 capture_output=True,
                 text=True,
@@ -197,8 +197,10 @@ def run_matlab_batch(PARAMS):
     
     print(os.getcwd())
     
+    print("Start startup script")
     run_matlab_script("startup")
+    print("Start simulation script")    
     run_matlab_script("co2lab3DPUMLE")
- 
+    print("End simulation script")
     # Change back to root folder
     os.chdir(os.path.join(PUMLE_ROOT))
