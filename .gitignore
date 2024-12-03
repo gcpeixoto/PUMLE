@@ -1,5 +1,5 @@
 matlab/mrst-2024a/*.asv
-matlab/mrst-2024a/*.mat
+matlab/mrst-2024a/*ParamsPUMLE.mat
 matlab/mrst-2024a/*.log
 matlab/mrst-2024a/sim/
 matlab/mrst-2024a/temp/
