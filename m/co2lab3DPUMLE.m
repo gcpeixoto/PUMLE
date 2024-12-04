@@ -177,7 +177,7 @@ c_{NaCl,liquid} = m_4 + m_5T,
 
 where 
     
-              T: temperature
+              T: temperature [C]
             m_0: 58443
             m_1: 23.772
             m_2: 0.018639
@@ -187,10 +187,69 @@ where
 
 
 
-(Dreisner, 2007): DOI: 10.1016/j.gca.2007.05.026
+(Driesner, 2007): DOI: 10.1016/j.gca.2007.05.026
 
 Furthermore, we assume that, for pure water, 1000 [kg/m3], and for 
 Campos Basin, X_{NaCl,liquid} may vary from 1% to 20% [0.01 to 0.20].
+
+
+Note: Driesner formula is originally replicated from 
+"Tödheide K. (1980) The influence of density and temperature on
+the properties of pure molten salts. Angew. Chem. Int. Ed. Engl.
+19, 606–619."
+
+
+-----------------------------
+REFERENCE FOR BRINE VISCOSITY
+-----------------------------
+
+To compute the brine viscosity, we use the (Mao & Duan, 2009) model and a
+few steps.
+
+Mao & Duan expounded: "the viscosity of aqueous electrolyte solutions depends 
+strongly on temperature, less on salinity, and is much less dependent
+on pressure."
+
+The following procedure depends only on the brine saturation:
+
+1. Given the brine density [kg/m3] and brine mass fraction (saturation)
+[%], compute the molality (m) [mol/kg] as:
+
+m = \frac{ 1000 X_{NaCl} }{ M_{NaCl} (1 - X_{NaCl})}
+
+where M_{\text{NaCl}} is the molar mass of NaCl (58.44 g/mol).
+
+
+2. Compute the water viscosity
+
+\log (\mu_{H20}) = \sum_{i=1}^5 d_i T^{i-3} + \sum_{i=6}^{10} d_i \rho_{H2O} T^{i-8}
+
+3. Compute the relative viscosity:
+
+\log (\mu_r) = Am + Bm^2 + Cm^3,  \mu_r = \frac{\mu_{brine}}{\mu_{H2O},
+
+where 
+
+A = a_0 + a_1T + a_2T^2
+B = b_0 + b_1T + b_2T^2
+C = c_0 + c_1T
+
+where:
+ 
+        T : temperature [K]
+        a0: -0.21319213
+        a1: 0.13651589e-2
+        a2: -0.12191756e-5
+        b0: 0.69161945e-1
+        b1: −0.27292263e-3
+        b2: 0.20852448e−6
+        c0: −0.25988855e−2
+        c1: 0.77989227e-5
+
+
+(Mao & Duan, 2009): DOI: 10.1007/s10765-009-0646-7
+
+
 
 %}
 
@@ -203,33 +262,72 @@ X_NaCl = PARAMS.Fluid.XNaCl;
 X_H2O = 1 - X_NaCl; % 
 
 
-% Dreisner correlation 
+% === Driesner correlation for brine density
 
 % coefficients
 [m0, m1, m2, m3, m4, m5] = deal(58443, 23.772, 0.018639, -1.9687e-6, -1.5259e-5, 5.5058e-8);
 
+% formula 
 rho_NaCl_0 = m0 / (m1 + m2*T_r + m3*T_r^2);
-c_NaCl = m4 + m5 * T_r;
+c_NaCl     = m4 + m5 * T_r;
 
-P_b = 10*P_r; % MPa to bar : 1 MPa = 10 bar
-rho_NaCl = rho_NaCl_0 / ( 1 - 0.1*log(1 + 10*P_b * c_NaCl) );
+P_b        = 10*P_r; % pressure [bar];  MPa to bar : 1 MPa = 10 bar
+rho_NaCl   = rho_NaCl_0 / ( 1 - 0.1*log(1 + 10*P_b * c_NaCl) ); % salt density
+rho_H2O    = PARAMS.Fluid.rho_h2o; % water density [kg/m3]; reference: 1000
 
-rho_H20 = 1000; % [kg/m3]
-
-% brine density
-rhow = rho_H20*X_H2O + rho_NaCl*X_NaCl; % density of brine 
+rhow       = rho_H2O*X_H2O + rho_NaCl*X_NaCl; % brine density
 
 
+% ==== Mao & Duan correlation 
+
+t_ref = T_r + 273.15; % reference temperature, in Kelvin
+
+% NaCl molar mass [kg/mol] = [58.44 g/mol / 1e3]
+NaCl_mm = 58.44/1000; 
+
+% NaCl molality [mol/kg]
+moly = X_NaCl / ( NaCl_mm*(1 - X_NaCl) );
+
+
+% Coeffiecients
+[a0, a1, a2, ...
+ b0, b1, b2, ...
+ c0, c1] = deal(-0.21319213, 0.13651589e-2, -0.12191756e-5, ... 
+     0.69161945e-1, -0.27292263e-3, 0.20852448e-6, ... 
+     -0.25988855e-2, 0.77989227e-5);
+
+
+A = a0 + a1*t_ref + a2*t_ref^2;
+B = b0 + b1*t_ref + b2*t_ref^2;
+C = c0 + c1*t_ref;
+
+% relative viscosity correlation
+mu_rel = exp( A*moly + B*moly^2 + C*moly^3 );
+
+% water viscosity
+mu_H2O = 0; 
+
+% coefficients
+d = [ 0.28853170e7, -0.11072577e5, -0.90834095e1, 0.30925651e-1, -0.27407100e-4, ...
+      -0.19283851e7, 0.56216046e4, 0.13827250e2, -0.47609523e-1, 0.35545041e-4 ];
+
+% summing
+for i = 1:5;  mu_H2O = mu_H2O + d(i) * t_ref^(i-3);               end
+for i = 6:10; mu_H2O = mu_H2O + d(i) * rho_H2O/1e3 * t_ref^(i-8); end % divided by 1e3 to convert to g/cm3
+
+% correlation
+mu_H2O = exp(mu_H2O);
+
+
+% === Further parameters
 co2     = CO2props(); % sampled tables of co2 fluid properties (MRST)
 p_ref   = P_r * mega * Pascal; % reference pressure
-t_ref   = T_r + 273.15; % reference temperature, in Kelvin
 rhoc    = co2.rho(p_ref, t_ref); % co2 density at ref. press/temp
 cf_co2  = co2.rhoDP(p_ref, t_ref) / rhoc; % co2 compressibility
 cf_wat  = 0; % brine compressibility (zero)
 cf_rock = PARAMS.Fluid.cp_rock / barsa; % rock compressibility
-muw     = PARAMS.Fluid.mu_brine * Pascal * second; % brine viscosity
+muw     = mu_rel*mu_H2O; % brine viscosity; ref. 8e-4 
 muco2   = co2.mu(p_ref, t_ref) * Pascal * second; % co2 viscosity
-
 
 
 mrstModule add ad-props; % The module where initSimpleADIFluid is found
