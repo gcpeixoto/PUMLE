@@ -263,5 +263,5 @@ if __name__ == "__main__":
     PARAMS = read_sim_params()
 
 
-    run_multiple_simulations(PARAMS, "dataset", 2) # 10^3 different simulations
+    run_multiple_simulations(PARAMS, "dataset", 2) # n^3 different simulations
     
