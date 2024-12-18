@@ -237,17 +237,16 @@ def run_multiple_simulations(PARAMS: dict, res_dir: str, n: int) -> None:
     # Define the parameter ranges
     print(f'Running {n**3} simulations')
     param_range = np.linspace(-1, 1, n)
-    counter = 0
     # Iterate over combinations of parameter values
-    for pres_ref in param_range:
-        for XNaCl in param_range:
-            for rho_h2o in param_range:
+    for counter_1, pres_ref in enumerate(param_range):
+        for counter_2, XNaCl in enumerate(param_range):
+            for counter_3, rho_h2o in enumerate(param_range):
                 # Update the parameters
                 
                 PARAMS['Fluid']["pres_ref"] += pres_ref
                 PARAMS['Fluid']['XNaCl'] += XNaCl
                 PARAMS['Fluid']['rho_h2o'] += rho_h2o
-                PARAMS["Pre-Processing"]["case_name"] = f"GCS01_{counter}"
+                PARAMS["Pre-Processing"]["case_name"] = f"GCS01_{counter_1}_{counter_2}_{counter_3}"
                 PARAMS["Paths"]["PUMLE_RESULTS"] = res_dir
                 
                 print("="*80)
@@ -255,6 +254,7 @@ def run_multiple_simulations(PARAMS: dict, res_dir: str, n: int) -> None:
                 run_simulation(PARAMS)
                 print('Simulation finished')
                 print("="*80)
+
 
 
 if __name__ == "__main__":

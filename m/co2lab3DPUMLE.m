@@ -29,7 +29,7 @@ fprintf('[MATLAB] PUMLE''s .mat files loaded for simulation.\n')
 
 
 %% General Settings
-
+% str2double
 % Run MRST startup (for command line)
 run(fullfile(PARAMS.MATLAB.mrst_root,'startup.m'));
 

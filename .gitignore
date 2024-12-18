@@ -5,3 +5,5 @@ sim/
 temp/
 .DS_Store
 .ipynb_checkpoints/
+ipynb/figures/
+ipynb/model/
