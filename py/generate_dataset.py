@@ -1,267 +1,177 @@
-import platform, os, configparser
+import platform
+import os
+import logging
+import numpy as np
+import subprocess
+
 from datetime import datetime
+from scipy.io import savemat
+from typing import Dict
 
-GENERICAL_PATH = "/".join(os.getcwd().split('/')[:-1]) 
 
-def get_params(c: configparser) -> dict:   
-    """
-    Get simulation parameters from configuration setup file.
+class GenerateDataset:
+    def __init__(self, params: Dict) -> None:
+        self.params = params
+        self.logger = self._setup_logger()
+        self._validate_params()
+
+    def _setup_logger(self) -> logging.Logger:
+        """Set up a logger to handle log messages."""
+        logger = logging.getLogger("PUMLELogger")
+        logger.setLevel(logging.DEBUG)
+
+        # Create file handler
+        log_file = os.path.join(self.params['Paths']['PUMLE_ROOT'], 'simulation.log')
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setLevel(logging.DEBUG)
+
+        # Create formatter and add it to the handler
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(formatter)
+
+        # Add the handler to the logger
+        if not logger.hasHandlers():
+            logger.addHandler(file_handler)
+
+        return logger
+
+    def _validate_params(self) -> None:
+        """Validate required parameters are present."""
+        required_keys = ['Paths', 'MATLAB', 'Fluid', 'Pre-Processing']
+        for key in required_keys:
+            if key not in self.params:
+                self.logger.error(f"Missing required parameter: {key}")
+                raise ValueError(f"Missing required parameter: {key}")
+
+    def _create_directory(self, path: str) -> None:
+        """Create a directory if it does not exist."""
+        try:
+            os.makedirs(path, exist_ok=True)
+        except Exception as e:
+            self.logger.error(f"Failed to create directory {path}: {e}")
+            raise
     
-    Parameters
-    ----------
-        c : configparser
+    def _dict_to_ini(self, config_dict: Dict) -> str:
+        """Helper function to convert a dict back to .ini format"""
         
-    Returns
-    -------
-    
-        Dictionary of parameters.
-    
-    """ 
-    
-    # Read input parameters
-    c.read(os.path.join('..','setup.ini'))
-
-    # Sections
-    sections = ['Paths', 'Pre-Processing', 'Grid', 'Fluid', 'Initial Conditions', 
-                        'Boundary Conditions', 'Wells', 'Schedule', 'MATLAB']
-    
-    # Auxiliary function to reduce coding. 
-    # Here, 'section=section' is used to bypass late binding and capture the looped value.
-    # Otherwise, the 'section' value at lambda definition time would be the last looped value.
-    aux = [lambda param, section=section: c.get(section, param) for section in sections]
-
-    # TODO Remove globals and implement class. Should we transfer that to a Makefile??
-    
-    # check if the key Paths exists in the configuration file
-
-    # Paths 
-    global PUMLE_ROOT;      PUMLE_ROOT = c.get('Paths','PUMLE_ROOT') 
-    global PUMLE_RESULTS;   PUMLE_RESULTS = c.get('Paths','PUMLE_RESULTS') 
-    
-    p_params = ['PUMLE_ROOT', 'PUMLE_RESULTS']    
-        
-    # Pre-Processing
-    pp_params = ['case_name', 'file_basename', 'model_name']    
-                                      
-    # Grid
-    gp_params = ['file_path', 'repair_flag']
-    
-    # Fluid
-    fp_params = ['pres_ref', 'temp_ref', 'cp_rock', 'srw', 'src', 'pe', 'XNaCl', 'rho_h2o']
-
-    # Initial Conditions
-    sp_params = ['sw_0']
-
-    # TODO Study MRST::addBC
-    # Boundary conditions
-    bc_params = ['type']
-
-    # Well
-    w_params = ['CO2_inj']
-
-    # Schedule
-    s_params = ['injection_time', 'migration_time', 'injection_timestep_rampup', 'migration_timestep']
-
-    # MATLAB
-    m_params = ['matlab','mrst_root']
-    
-    # Fetch sections to return a dict whose keys are sections and values are second-level dicts of parameters
-    all_params = [p_params, pp_params, gp_params, fp_params, sp_params, bc_params, w_params, s_params, m_params]
-    
-    # Marks to do a type casting to float over numerical parameters.
-    cast = [False, False, False, True, True, False, True, True, False]
-    
-    PARAMS = {}
-    for k in range(len(all_params)):
-        PARAMS[sections[k]] = dict(zip(all_params[k], [float(aux[k](_)) if cast[k] else aux[k](_) for _ in all_params[k]]))
-        
-    print(f'[PUMLE] Simulation setup file sucessfully read.')
-
-    return PARAMS
-
-def read_sim_params():
-    """
-    Read simulation parameters from the configuration file 'setup.ini'. 
-    
-    TODO Refactor this function to better define the top project folder and allow setup.ini to come from other path.
-
-    Returns
-    -------
-    dict: 
-    
-    """
-                    
-    # Search in directory above
-    if 'setup.ini' not in os.listdir('..'): 
-        raise RuntimeError('File \'setup.ini\' not found in the top project folder. Change working directory and rerun this script.')
-   
-    else: 
-        # Get path to top folder project inside 'setup.ini'                            
-        c = configparser.ConfigParser()
-        return get_params(c)
-    
-    
-
-def dict_to_ini(config_dict):
-    """Helper function to convert a dict back to .ini format"""
-    
-    ini_str = ""
-    for section, items in config_dict.items():
-        ini_str += f"[{section}]\n"
-        print(items)
-        for key, value in items.items():
-            ini_str += f"{key} = {value}\n"
-        ini_str += "\n"
-    return ini_str
+        ini_str = ""
+        for section, items in config_dict.items():
+            ini_str += f"[{section}]\n"
+            print(items)
+            for key, value in items.items():
+                ini_str += f"{key} = {value}\n"
+            ini_str += "\n"
+        return ini_str
 
 
+    def _print_report(self, res_dir: str, msg: bool = True) -> None:
+        """
+        Print simulation setup report for log purposes.
 
-def print_report(PARAMS: dict, res_dir: str, msg: bool=True) -> None:
-    """
-    Print simulation setup report for log purposes.
-    
-    Parameters
-    ---------
-        PARAMS: dictionary of parameters
-        res_dir: results output directory
-        msg: log message
-    
-    """
-    
-    # Defaults results folder to '/temp'
-    out = os.path.join(PUMLE_ROOT,res_dir)
+        Parameters
+        ---------
+            res_dir: results output directory
+            msg: log message
+        """
+        out = os.path.join(self.params['Paths']['PUMLE_ROOT'], res_dir or 'temp')
+        self._create_directory(out)
 
-    if len(res_dir) == 0:
-        out = os.path.join(PUMLE_ROOT,'temp')
-        os.makedirs(out,exist_ok=True)
-    else:
-        os.makedirs(out,exist_ok=True)
-            
-    # Get date/time and system information
-    system, hostname, release, *_ =  platform.uname()
-    date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    # Text elements to write
-    te = {
-        0: ''.center(80,'-') + '\n',
-        1: 'PUMLE SIMULATION REPORT'.center(80, ' ') + '\n',     
-        2: f'Date/Time: {date_time}\n',   
-        3: f'OS: {system}\n',
-        4: f'Version: {release}\n',
-        5: f'Hostname: {hostname}\n'
-    }
-    
-    # Write report
-    with open(os.path.join(PUMLE_ROOT,res_dir,'report.txt'),'w',) as fo:
-        
-        # Header
-        fo.write(te[0])
-        fo.write(te[1])
-        fo.write(te[0])
-                
-        for k in range(2,6): fo.write(te[k])
-        
-        # Core information
-        fo.write(te[0])        
-        fo.write(dict_to_ini(PARAMS)) # TODO Should we change to another structure?        
-    
-    fo.close()
-    
-    if msg: print(f'[PUMLE] Report file saved to \'{out}\'.')
-    
+        # Get date/time and system information
+        system, hostname, release, *_ = platform.uname()
+        date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-def export_to_matlab(PARAMS) -> None:
-    """ Export dict of simulation parameters to Matlab to be read individually."""
-    
-    from scipy.io import savemat
-    
-    for k in PARAMS.keys():    
-        basename = f'{k.replace('-','').replace(' ','')}ParamsPUMLE'
-        mroot = os.path.join(PUMLE_ROOT,'m')
-        fname = os.path.join(mroot,basename + '.mat')
-        savemat(fname, PARAMS[k], appendmat=True)
-        print(f'[PUMLE] Matlab file \'{basename + '.mat'}\' exported to \'{mroot}\'.')
-        
-        
-def run_matlab_batch(PARAMS):    
-    import subprocess
-    
-    # Path to Matlab binary in your computer
-    bin = PARAMS['MATLAB']['matlab']
-    
-    mfile = PUMLE_ROOT + '/m'
-    
-    # Change directory to Matlab folder
-    os.chdir(mfile)
+        # Text elements to write
+        report_lines = [
+            ''.center(80, '-') + '\n',
+            'PUMLE SIMULATION REPORT'.center(80, ' ') + '\n',
+            ''.center(80, '-') + '\n',
+            f'Date/Time: {date_time}\n',
+            f'OS: {system}\n',
+            f'Version: {release}\n',
+            f'Hostname: {hostname}\n',
+            ''.center(80, '-') + '\n',
+            self._dict_to_ini(self.params)
+        ]
 
-    # Command to run matlab script in batch mode without Java
-    cmd = f'-logfile co2lab3DPUMLE.log -nojvm -batch co2lab3DPUMLE'
+        report_path = os.path.join(out, 'report.txt')
+        try:
+            with open(report_path, 'w') as report_file:
+                report_file.writelines(report_lines)
+            if msg:
+                self.logger.info(f"Report file saved to '{report_path}'.")
+        except Exception as e:
+            self.logger.error(f"Failed to write report: {e}")
+
+    def _export_to_matlab(self) -> None:
+        """Export dict of simulation parameters to Matlab to be read individually."""
+        mroot = os.path.join(self.params['Paths']['PUMLE_ROOT'], 'm')
+        self._create_directory(mroot)
+
+        for section, content in self.params.items():
+            basename = f"{section.replace('-', '').replace(' ', '')}ParamsPUMLE"
+            fname = os.path.join(mroot, f"{basename}.mat")
+            try:
+                savemat(fname, content, appendmat=True)
+                self.logger.info(f"Matlab file '{basename}.mat' exported to '{mroot}'.")
+            except Exception as e:
+                self.logger.error(f"Failed to export Matlab file '{basename}.mat': {e}")
     
-    try:
-        out = subprocess.run([bin] + cmd.split(), shell=False, check=True)
-        print(f"[PUMLE] Calling Matlab in batch mode: {out.returncode}")
-        
-    except subprocess.CalledProcessError as e:
-        print(f"[PUMLE] exception raise: {e}")
- 
-    # Change back to root folder
-    os.chdir(os.path.join(PUMLE_ROOT,"py"))
+    def _run_matlab_batch(self) -> None:
+        """Run Matlab in batch mode."""
+        bin_path = self.params['MATLAB'].get('matlab')
+        if not bin_path:
+            self.logger.error("Path to Matlab binary is not defined.")
+            raise ValueError("Path to Matlab binary is not defined.")
 
-def run_simulation(PARAMS: dict) -> None:
-    """
-    Run the simulation pipeline.
-    
-    Parameters
-    ----------
-        PARAMS: dict
-        res_dir: str
-        
-    """
-    
-    # Print report
-    export_to_matlab(PARAMS)
-    run_matlab_batch(PARAMS)
+        mfile_dir = os.path.join(self.params['Paths']['PUMLE_ROOT'], 'm')
 
+        # Change directory to Matlab folder
+        os.chdir(mfile_dir)
 
-def run_multiple_simulations(PARAMS: dict, res_dir: str, n: int) -> None:
-    """
-    Run multiple simulations.
-    
-    Parameters
-    ----------
-        PARAMS: dict
-        res_dir: str
-        n: int
-        
-    """
-    # Define the parameter ranges
-    print(f'Running {n**3} simulations')
-    param_range = np.linspace(-1, 1, n)
-    # Iterate over combinations of parameter values
-    for counter_1, pres_ref in enumerate(param_range):
-        for counter_2, XNaCl in enumerate(param_range):
-            for counter_3, rho_h2o in enumerate(param_range):
-                # Update the parameters
-                
-                PARAMS['Fluid']["pres_ref"] += pres_ref
-                PARAMS['Fluid']['XNaCl'] += XNaCl
-                PARAMS['Fluid']['rho_h2o'] += rho_h2o
-                PARAMS["Pre-Processing"]["case_name"] = f"GCS01_{counter_1}_{counter_2}_{counter_3}"
-                PARAMS["Paths"]["PUMLE_RESULTS"] = res_dir
-                
-                print("="*80)
-                print(f'Running simulation with pres_ref={pres_ref}, XNaCl={XNaCl}, rho_h2o={rho_h2o}')
-                run_simulation(PARAMS)
-                print('Simulation finished')
-                print("="*80)
+        cmd = "-logfile co2lab3DPUMLE.log -nojvm -batch co2lab3DPUMLE"
 
+        try:
+            out = subprocess.run([bin_path] + cmd.split(), shell=False, check=True)
+            self.logger.info(f"Matlab batch mode executed successfully with return code {out.returncode}.")
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"Error executing Matlab batch: {e}")
+            raise
+        finally:
+            os.chdir(os.path.join(self.params['Paths']['PUMLE_ROOT'], "py"))
 
+    def run_simulation(self) -> None:
+        """
+        Run the simulation pipeline.
+        """
+        try:
+            self._export_to_matlab()
+            self._run_matlab_batch()
+            self._print_report(self.params['Paths']['PUMLE_RESULTS'], msg=True)
+        except Exception as e:
+            self.logger.error(f"Simulation pipeline failed: {e}")
 
-if __name__ == "__main__":
-    import numpy as np
-    # Pipeline test
-    PARAMS = read_sim_params()
+    def run_multiple_simulations(self, n: int) -> None:
+        """
+        Run multiple simulations.
 
+        Parameters
+        ----------
+            n: int - number of simulations to run
+        """
+        self.logger.info(f"Starting {n**3} simulations.")
+        param_range = np.linspace(-1, 1, n)
 
-    run_multiple_simulations(PARAMS, "dataset", 2) # n^3 different simulations
-    
+        for counter_1, pres_ref in enumerate(param_range):
+            for counter_2, XNaCl in enumerate(param_range):
+                for counter_3, rho_h2o in enumerate(param_range):
+                    self.params['Fluid']['pres_ref'] += pres_ref
+                    self.params['Fluid']['XNaCl'] += XNaCl
+                    self.params['Fluid']['rho_h2o'] += rho_h2o
+                    self.params['Pre-Processing']['case_name'] = f"GCS01_{counter_1}_{counter_2}_{counter_3}"
+
+                    self.logger.info(f"Running simulation {counter_1}-{counter_2}-{counter_3} with pres_ref={self.params['Fluid']['pres_ref']}, XNaCl={self.params['Fluid']['XNaCl']}, rho_h2o={self.params['Fluid']['rho_h2o']}")
+                    try:
+                        self.run_simulation()
+                        self.logger.info(f"Simulation {counter_1}-{counter_2}-{counter_3} completed successfully.")
+                    except Exception as e:
+                        self.logger.error(f"Simulation {counter_1}-{counter_2}-{counter_3} failed: {e}")

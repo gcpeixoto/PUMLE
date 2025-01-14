@@ -29,7 +29,6 @@ fprintf('[MATLAB] PUMLE''s .mat files loaded for simulation.\n')
 
 
 %% General Settings
-% str2double
 % Run MRST startup (for command line)
 run(fullfile(PARAMS.MATLAB.mrst_root,'startup.m'));
 
@@ -39,7 +38,6 @@ mrstVerbose off
 
 % Case name
 case_name = PARAMS.PreProcessing.case_name;
-
 
 %% Grid and rock models
 
@@ -56,7 +54,7 @@ else
     PARAMS.Grid.repair_flag = false;
 end
 
-G = processGRDECL(grdecl,'RepairZCORN',PARAMS.Grid.repair_flag);
+G = processGRDECL(grdecl,'RepairZCORN', PARAMS.Grid.repair_flag);
 G = computeGeometry(G);
 
 rock = grdecl2Rock(grdecl, G.cells.indexMap);
@@ -256,7 +254,6 @@ where:
 gravity on; 
 g = gravity; 
 
-
 % mass fractions for H2O-NaCl binary mixture (brine)
 X_NaCl = PARAMS.Fluid.XNaCl;
 X_H2O = 1 - X_NaCl; % 
@@ -329,7 +326,6 @@ cf_rock = PARAMS.Fluid.cp_rock / barsa; % rock compressibility
 muw     = mu_rel*mu_H2O; % brine viscosity; ref. 8e-4 
 muco2   = co2.mu(p_ref, t_ref) * Pascal * second; % co2 viscosity
 
-
 mrstModule add ad-props; % The module where initSimpleADIFluid is found
 
 % Use function 'initSimpleADIFluid' to make a simple fluid object
@@ -396,7 +392,7 @@ end
 %% Well placement
 
 % Calculate the injection rate
-inj_rate = PARAMS.Wells.CO2_inj * meter^3 / year;
+inj_rate = str2double(PARAMS.Wells.CO2_inj) * meter^3 / year;
 
 % Start with empty set of wells
 W = [];
@@ -444,7 +440,6 @@ bc = addBC(bc, bc_face_ix, PARAMS.BoundaryConditions.type, ...
 schedule.control    = struct('W', W, 'bc', bc);
 schedule.control(2) = struct('W', W, 'bc', bc);
 schedule.control(2).W.val = 0;
-
 
 dT = rampupTimesteps(PARAMS.Schedule.injection_time * year, ...
     PARAMS.Schedule.injection_timestep_rampup * year, 4);  % injection with increasing timestep size
