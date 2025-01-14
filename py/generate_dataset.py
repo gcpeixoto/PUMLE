@@ -159,7 +159,7 @@ class GenerateDataset:
             n: int - number of simulations to run
         """
         self.logger.info(f"Starting {n**3} simulations.")
-        param_range = np.linspace(-1, 1, n)
+        param_range = np.linspace(0, 1, n)
 
         for counter_1, pres_ref in enumerate(param_range):
             for counter_2, XNaCl in enumerate(param_range):
