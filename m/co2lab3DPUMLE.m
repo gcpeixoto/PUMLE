@@ -441,16 +441,33 @@ schedule.control    = struct('W', W, 'bc', bc);
 schedule.control(2) = struct('W', W, 'bc', bc);
 schedule.control(2).W.val = 0;
 
-dT = rampupTimesteps(PARAMS.Schedule.injection_time * year, ...
-    PARAMS.Schedule.injection_timestep_rampup * year, 4);  % injection with increasing timestep size
+% dT = rampupTimesteps(PARAMS.Schedule.injection_time * year, ...
+%     PARAMS.Schedule.injection_timestep_rampup * year);  % injection with increasing timestep size
+% 
+% schedule.step.val = [dT; ... 
+%                     repmat(PARAMS.Schedule.migration_time * year, ...
+%                     PARAMS.Schedule.migration_timestep, 1)]; % post injection
+% 
+% % Specifying which control to use for each timestep.
+% schedule.step.control = [ones(numel(dT), 1); ones(PARAMS.Schedule.migration_timestep,1)*2];
 
-schedule.step.val = [dT; ... 
-                    repmat(PARAMS.Schedule.migration_time * year, ...
-                    PARAMS.Schedule.migration_timestep, 1)]; % post injection
+% Sets uniform time steps for injection and post-injection
+steps_injection = PARAMS.Schedule.injection_timesteps;
+steps_migration = PARAMS.Schedule.migration_timesteps;
 
-% Specifying which control to use for each timestep.
-schedule.step.control = [ones(numel(dT), 1); ones(PARAMS.Schedule.migration_timestep,1)*2];
-                         
+
+dT_injection = PARAMS.Schedule.injection_time * year / ... 
+               steps_injection;
+               
+dT_migration = PARAMS.Schedule.migration_time * year / ... 
+               steps_migration;
+
+vec_injection = ones(steps_injection, 1) * dT_injection;
+vec_migration = ones(steps_migration, 1) * dT_migration;
+
+schedule.step.val = [vec_injection; vec_migration];
+schedule.step.control = [ones(steps_injection, 1); ones(steps_migration, 1)*2];
+
 
 %% Model
 model = TwoPhaseWaterGasModel(G, rock, fluid, 0, 0);
@@ -485,6 +502,6 @@ plotToolbar(G,states)
 % save wellSols to disk
 save(fullfile(PARAMS.Paths.PUMLE_ROOT,...
             PARAMS.Paths.PUMLE_RESULTS,...
-            strcat('wellSols_',PARAMS.PreProcessing.case_name,'.mat')));
+            strcat('states_',PARAMS.PreProcessing.case_name,'.mat')),'-v7.3');
 
 fprintf('[MATLAB] Simulation completed.\n')

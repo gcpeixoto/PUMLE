@@ -55,7 +55,7 @@
 
 ## Wells
 
-- **CO2_inj**: `1.5e9 m^3/year`  
+- **CO2_inj**: `1.5e5 m^3/year`  
   Gas injection volumetric flow rate.
 
 - **wells_list**: `NA1A: (38, 36, 6, 11) & RJS16: (12, 14, 6, 11)`  
