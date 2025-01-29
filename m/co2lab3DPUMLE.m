@@ -497,11 +497,19 @@ plotToolbar(G,states)
 
 %}
 
-%% Save simulation data
+%% Save simulation data (JSON)
 
-% save wellSols to disk
-save(fullfile(PARAMS.Paths.PUMLE_ROOT,...
+% JSON file name
+fname = fullfile(PARAMS.Paths.PUMLE_ROOT,...
             PARAMS.Paths.PUMLE_RESULTS,...
-            strcat('states_',PARAMS.PreProcessing.case_name,'.mat')),'-v7.3');
+            strcat('states_',PARAMS.PreProcessing.case_name,'.json'));
 
+% Encoding
+json = jsonencode(states);
+
+% Write to file
+fid = fopen(fname,'w'); fwrite(fid,json); fclose(fid);
+
+% Status
+fprintf('[MATLAB] Simulation data exported to JSON.\n')
 fprintf('[MATLAB] Simulation completed.\n')
