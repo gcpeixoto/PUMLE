@@ -392,14 +392,14 @@ end
 %% Well placement
 
 % Calculate the injection rate
-inj_rate = str2double(PARAMS.Wells.CO2_inj) * meter^3 / year;
+inj_rate = PARAMS.Wells.CO2_inj * meter^3 / year;
 
 % Start with empty set of wells
 W = [];
 
 % Add wells
-W = addWell(W, G, rock, cW{2}, ...
-            'refDepth', G.cells.centroids(cW{2}, 3), ... % BHP reference depth
+W = addWell(W, G, rock, cW{1}, ...
+            'refDepth', G.cells.centroids(cW{1}, 3), ... % BHP reference depth
             'type', 'rate', ...  % inject at constant rate
             'val', inj_rate, ... % volumetric injection rate
             'comp_i', [0 1]);    % inject CO2, not water
