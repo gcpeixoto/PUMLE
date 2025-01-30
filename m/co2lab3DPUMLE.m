@@ -392,14 +392,14 @@ end
 %% Well placement
 
 % Calculate the injection rate
-inj_rate = str2double(PARAMS.Wells.CO2_inj) * meter^3 / year;
+inj_rate = PARAMS.Wells.CO2_inj * meter^3 / year;
 
 % Start with empty set of wells
 W = [];
 
 % Add wells
-W = addWell(W, G, rock, cW{2}, ...
-            'refDepth', G.cells.centroids(cW{2}, 3), ... % BHP reference depth
+W = addWell(W, G, rock, cW{1}, ...
+            'refDepth', G.cells.centroids(cW{1}, 3), ... % BHP reference depth
             'type', 'rate', ...  % inject at constant rate
             'val', inj_rate, ... % volumetric injection rate
             'comp_i', [0 1]);    % inject CO2, not water
@@ -441,16 +441,33 @@ schedule.control    = struct('W', W, 'bc', bc);
 schedule.control(2) = struct('W', W, 'bc', bc);
 schedule.control(2).W.val = 0;
 
-dT = rampupTimesteps(PARAMS.Schedule.injection_time * year, ...
-    PARAMS.Schedule.injection_timestep_rampup * year, 4);  % injection with increasing timestep size
+% dT = rampupTimesteps(PARAMS.Schedule.injection_time * year, ...
+%     PARAMS.Schedule.injection_timestep_rampup * year);  % injection with increasing timestep size
+% 
+% schedule.step.val = [dT; ... 
+%                     repmat(PARAMS.Schedule.migration_time * year, ...
+%                     PARAMS.Schedule.migration_timestep, 1)]; % post injection
+% 
+% % Specifying which control to use for each timestep.
+% schedule.step.control = [ones(numel(dT), 1); ones(PARAMS.Schedule.migration_timestep,1)*2];
 
-schedule.step.val = [dT; ... 
-                    repmat(PARAMS.Schedule.migration_time * year, ...
-                    PARAMS.Schedule.migration_timestep, 1)]; % post injection
+% Sets uniform time steps for injection and post-injection
+steps_injection = PARAMS.Schedule.injection_timesteps;
+steps_migration = PARAMS.Schedule.migration_timesteps;
 
-% Specifying which control to use for each timestep.
-schedule.step.control = [ones(numel(dT), 1); ones(PARAMS.Schedule.migration_timestep,1)*2];
-                         
+
+dT_injection = PARAMS.Schedule.injection_time * year / ... 
+               steps_injection;
+               
+dT_migration = PARAMS.Schedule.migration_time * year / ... 
+               steps_migration;
+
+vec_injection = ones(steps_injection, 1) * dT_injection;
+vec_migration = ones(steps_migration, 1) * dT_migration;
+
+schedule.step.val = [vec_injection; vec_migration];
+schedule.step.control = [ones(steps_injection, 1); ones(steps_migration, 1)*2];
+
 
 %% Model
 model = TwoPhaseWaterGasModel(G, rock, fluid, 0, 0);
@@ -480,11 +497,19 @@ plotToolbar(G,states)
 
 %}
 
-%% Save simulation data
+%% Save simulation data (JSON)
 
-% save wellSols to disk
-save(fullfile(PARAMS.Paths.PUMLE_ROOT,...
+% JSON file name
+fname = fullfile(PARAMS.Paths.PUMLE_ROOT,...
             PARAMS.Paths.PUMLE_RESULTS,...
-            strcat('wellSols_',PARAMS.PreProcessing.case_name,'.mat')));
+            strcat('states_',PARAMS.PreProcessing.case_name,'.json'));
 
+% Encoding
+json = jsonencode(states);
+
+% Write to file
+fid = fopen(fname,'w'); fwrite(fid,json); fclose(fid);
+
+% Status
+fprintf('[MATLAB] Simulation data exported to JSON.\n')
 fprintf('[MATLAB] Simulation completed.\n')
