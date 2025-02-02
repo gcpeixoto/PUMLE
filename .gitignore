@@ -1,10 +1,13 @@
 *.asv
 *.mat
 *.log
-sim/
-temp/
+data_lake/consolidated_data/*
+data_lake/json_results/*
+data_lake/mat_files/*
+data_lake/sim_results/*
 .DS_Store
 .ipynb_checkpoints/
 ipynb/figures/
 ipynb/model/
-py/__pycache__/
+src/pumle/__pycache__/
+simulation/*.out
