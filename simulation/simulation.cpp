@@ -58,14 +58,14 @@ int main() {
 
     std::cout << "Found " << num_simulations << " simulation folders." << std::endl; 
 
-    chdir("/home/luiz/dev/tcc/pumle_refactor/simulation/");
+    chdir("./simulation/");
 
     #pragma omp parallel for
     for (int i = 0; i < num_simulations; ++i) {
         run_simulation(folders[i], i + 1);
     }
 
-    chdir("/home/luiz/dev/tcc/pumle_refactor/");
+    chdir("../");
     
 
     std::cout << "All simulations completed." << std::endl;
