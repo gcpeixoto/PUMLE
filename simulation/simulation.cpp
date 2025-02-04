@@ -63,7 +63,7 @@ int main() {
 
     chdir("./simulation/");
 
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(dynamic)
     for (int i = 0; i < num_simulations; ++i) {
         run_simulation(folders[i], i + 1);
     }

@@ -1,6 +1,7 @@
 import logging
 import os
 import subprocess
+import time
 from typing import Dict, List, Tuple
 
 from src.pumle.ini import Ini
@@ -114,6 +115,7 @@ class Pumle:
         data.save_consolidated_data(saving_method=self.config.get("saving_method"))
 
     def run(self, clean_older_files: bool = False) -> None:
+        start_time = time.time()
         self.logger.info("Pumle running")
 
         self.logger.info("Pumle setting up")
@@ -148,3 +150,5 @@ class Pumle:
         self.save_data()
 
         self.logger.info("Pumle Finished")
+        print("--- %s seconds ---" % (time.time() - start_time))
+        print("--- %s minutes ---" % ((time.time() - start_time) / 60))

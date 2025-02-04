@@ -9,8 +9,8 @@ def set_root_path():
 
 config = {
     "root_path": set_root_path(),
-    "selected_parameters": ["temp_ref"],
-    "variation_delta": 0.5,
+    "selected_parameters": ["pres_ref", "temp_ref"],
+    "variation_delta": 0.2,
     "saving_method": "zarr",
 }
 
