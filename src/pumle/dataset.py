@@ -1,6 +1,7 @@
 from src.pumle.utils import read_json
 import os
 import numpy as np
+import zarr
 from typing import Tuple, List
 
 
@@ -53,6 +54,8 @@ class Dataset:
         """
         structures = self.read_jsons()
 
+        print(len(structures))
+
         p_list = []
         sw_list = []
         sg_list = []
@@ -68,20 +71,45 @@ class Dataset:
             np.stack(sg_list, axis=4),
         )
 
-    def save_consolidated_data(self, saving_method="numpy"):
+    def save_npy(self, name, data) -> None:
+        np.save(os.path.join(self.output_data_path, f"{name}.npy"), data)
+
+    def save_zarr(self, name, data) -> None:
+        z = zarr.open(
+            os.path.join(self.output_data_path, f"{name}.zarr"),
+            mode="w",
+            shape=data.shape,
+            dtype=data.dtype,
+        )
+        z[:] = data
+
+    def save_consolidated_data(self, saving_method="default"):
         """
         Save consolidated data to the output_data_path
 
         Parameters:
         saving_method (str): The method to save the data. Options are "numpy" or "json".
         """
+        if saving_method == "default":
+            saving_method = "numpy"
+
         p, sw, sg = self.consolidate_all_data()
 
-        if saving_method == "numpy":
-            np.save(os.path.join(self.output_data_path, "pressure.npy"), p)
-            np.save(os.path.join(self.output_data_path, "sw.npy"), sw)
-            np.save(os.path.join(self.output_data_path, "sg.npy"), sg)
-        elif saving_method == "json":
-            raise NotImplementedError
+        to_save = {
+            "pressure": p,
+            "sw": sw,
+            "sg": sg,
+        }
+
+        save_engine = {
+            "numpy": self.save_npy,
+            "zarr": self.save_zarr,
+        }
+
+        fn = save_engine.get(saving_method.strip().lower())
+
+        if fn:
+            for name, data in to_save.items():
+                fn(name, data)
         else:
-            raise ValueError("saving_method must be 'numpy' or 'json'")
+            raise ValueError("saving_method must be 'numpy' or 'zarr'")

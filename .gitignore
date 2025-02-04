@@ -1,6 +1,8 @@
 *.asv
 *.mat
 *.log
+
+.vscode
 data_lake/consolidated_data/*
 data_lake/json_results/*
 data_lake/mat_files/*

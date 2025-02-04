@@ -37,7 +37,10 @@ void run_simulation(const std::string& folder, int sim_id) {
     
 
 int main() {
-    std::string directory = "/home/luiz/dev/tcc/pumle_refactor/data_lake/mat_files/";
+    std::string current_path = fs::current_path().string();
+    std::string data_lake_path = "/data_lake/mat_files/";
+    std::string directory = current_path + data_lake_path;
+
     std::vector<std::string> folders;
     for (const auto& entry : fs::directory_iterator(directory)) {
         if (entry.is_directory() && entry.path().string().find("mat_files_") != std::string::npos) {
