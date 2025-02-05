@@ -1,8 +1,9 @@
 [x] Add zarr option to save files
 [x] Simplify the way of selecting parameters to vary
-[] Rename the folders name
-[] Give option to keep what layer the person wants
-[] Pass the threads numbers as a parameter
+[x] Rename the folders name
+[x] Give option to keep what layer the person wants
+[x] Save layers metadata
+[x] Pass the threads numbers as a parameter
 [] Give S3 possibility 
 [] Create a notebook reading and ploting the golden data
 [] Add more documentation

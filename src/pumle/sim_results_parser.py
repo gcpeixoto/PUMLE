@@ -78,6 +78,8 @@ class SimResultsParser:
             "saturation": s[sim_id],
         }
 
+        self.dimensions = dimensions
+
         return convert_ndarray(result)
 
     def save_all(self, path):

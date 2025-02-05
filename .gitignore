@@ -3,10 +3,12 @@
 *.log
 
 .vscode
-data_lake/consolidated_data/*
-data_lake/json_results/*
-data_lake/mat_files/*
-data_lake/sim_results/*
+data_lake/pre_bronze/*
+data_lake/silver_data/*
+data_lake/bronze_data/*
+data_lake/golden_data/*
+data_lake/metadata/*
+notebooks
 .DS_Store
 .ipynb_checkpoints/
 ipynb/figures/

@@ -30,8 +30,8 @@ class MatFiles:
         mroot = os.path.join(
             self.params["Paths"]["PUMLE_ROOT"],
             "data_lake",
-            "mat_files",
-            f"mat_files_{sim_id}",
+            "pre_bronze",
+            f"pre_bronze_{sim_id}",
         )
         self._create_directory(mroot)
 

@@ -5,7 +5,7 @@ import zarr
 from typing import Tuple, List
 
 
-class Dataset:
+class Arrays:
     def __init__(self, input_data_path, output_data_path):
         self.input_data_path: str = input_data_path
         self.output_data_path: str = output_data_path
@@ -45,6 +45,8 @@ class Dataset:
         sw = sw.reshape((i, j, k, ts))
         sg = sg.reshape((i, j, k, ts))
 
+        self.timestamps = ts
+
         return p, sw, sg
 
     def consolidate_all_data(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -53,8 +55,6 @@ class Dataset:
 
         """
         structures = self.read_jsons()
-
-        print(len(structures))
 
         p_list = []
         sw_list = []
@@ -83,7 +83,7 @@ class Dataset:
         )
         z[:] = data
 
-    def save_consolidated_data(self, saving_method="default"):
+    def save_golden_data(self, saving_method="default"):
         """
         Save consolidated data to the output_data_path
 

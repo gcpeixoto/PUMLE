@@ -38,12 +38,12 @@ void run_simulation(const std::string& folder, int sim_id) {
 
 int main() {
     std::string current_path = fs::current_path().string();
-    std::string data_lake_path = "/data_lake/mat_files/";
+    std::string data_lake_path = "/data_lake/pre_bronze/";
     std::string directory = current_path + data_lake_path;
 
     std::vector<std::string> folders;
     for (const auto& entry : fs::directory_iterator(directory)) {
-        if (entry.is_directory() && entry.path().string().find("mat_files_") != std::string::npos) {
+        if (entry.is_directory() && entry.path().string().find("pre_bronze_") != std::string::npos) {
             folders.push_back(entry.path().string());
         }
     }
