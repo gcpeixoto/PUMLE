@@ -1,11 +1,16 @@
-# TODO
+[x] Add zarr option to save files
+[x] Simplify the way of selecting parameters to vary
+[x] Rename the folders name
+[x] Give option to keep what layer the person wants
+[x] Save layers metadata
+[x] Pass the threads numbers as a parameter
+[] Give S3 possibility 
+[] Create a notebook reading and ploting the golden data
+[] Add more documentation
+[] Add Docker (maybe)
+[] Add Airflow (maybe)
+[] Add GPU (maybe)
 
-Remarks and annotations to remember.
-
-- `wells_list` is still unused. For the moment, experiments are executed with a single well with fixed settings. To change it, modify directly `co2lab3DPUMLE.m`, section `Well selection`.
-
-- Convergence problems are possibly being caused by high injection rates. Acceptable ranges should be analyzed later.
-
-Tasks
-
-- [] Create setup.ini in batch mode for repetitive runs.
+Times:
+--- 10.543886085351309 minutes ---
+--- 21.17038479646047 minutes ---
