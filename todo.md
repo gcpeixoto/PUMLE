@@ -4,6 +4,9 @@
 [x] Give option to keep what layer the person wants
 [x] Save layers metadata
 [x] Pass the threads numbers as a parameter
+[x] Create a new layer for structured data
+[] Not save all data, only if asked
+[] Save all the stuff in a postgress using index
 [] Give S3 possibility 
 [] Create a notebook reading and ploting the golden data
 [] Add more documentation

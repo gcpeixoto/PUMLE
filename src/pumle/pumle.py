@@ -126,12 +126,15 @@ class Pumle:
         parser.save_all(self.data_lake["silver_data"])
 
         if self.config.get("save_metadata"):
-            self.meta.get_data(dimensions=parser.dimensions)
+            self.meta.get_data(dimensions=parser.get_dimensions())
             self.meta.save_silver_data()
 
     def save_data(self) -> None:
         data = Arrays(self.data_lake["silver_data"], self.data_lake["golden_data"])
-        data.save_golden_data(saving_method=self.config.get("saving_method"))
+        if self.config.get("saving_method"):
+            data.save_golden_data(saving_method=self.config.get("saving_method"))
+        else:
+            data.save_golden_data()
 
         if self.config.get("save_metadata"):
             self.meta.get_data(timestamps=data.timestamps)
@@ -141,10 +144,11 @@ class Pumle:
         self.logger.info("Pumle cleaning older files")
         for path in self.data_lake.values():
             if os.path.exists(path):
-                subprocess.run(["rm", "-rf", path])
+                subprocess.run(["rm", "-rf", path, "*"])
 
         self.logger.info("Pumle cleaned older files")
 
+    def create_data_lake(self) -> None:
         self.logger.info("Pumle creating data lake directories")
         for path in self.data_lake.values():
             os.makedirs(path)
@@ -176,6 +180,7 @@ class Pumle:
 
         if should_clean_older_files:
             self.clean_older_files()
+            self.create_data_lake()
 
         self.logger.info("Pumle pre-processing")
         self.pre_process()
