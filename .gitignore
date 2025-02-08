@@ -8,6 +8,7 @@ data_lake/silver_data/*
 data_lake/bronze_data/*
 data_lake/golden_data/*
 data_lake/metadata/*
+data_lake/tabular_data/*
 notebooks
 .DS_Store
 .ipynb_checkpoints/
@@ -15,3 +16,4 @@ ipynb/figures/
 ipynb/model/
 src/pumle/__pycache__/
 simulation/*.out
+__pycache__

@@ -109,6 +109,8 @@ class Arrays:
         fn = save_engine.get(saving_method.strip().lower())
 
         if fn:
+            if not os.path.exists(self.output_data_path):
+                os.makedirs(self.output_data_path)
             for name, data in to_save.items():
                 fn(name, data)
         else:

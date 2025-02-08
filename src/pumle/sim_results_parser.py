@@ -89,6 +89,8 @@ class SimResultsParser:
         Parameters:
         path (str): The directory path where the JSON files will be saved.
         """
+        if not os.path.exists(path):
+            os.makedirs(path)
         for i in range(1, self.max_sim_id + 1):
             path_consolidated = os.path.join(path, f"GCS01_{i}.json")
             data = self.get_all(i - 1)

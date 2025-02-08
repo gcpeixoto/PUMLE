@@ -1,28 +1,37 @@
+import os
 import zarr
 import numpy as np
 import pandas as pd
 
 
 class Tabular:
-    def __init__(self):
-        self.file_structure = "zarr"
+    def __init__(self, input_data_path, output_data_path, input_structure, attr="sg"):
+        self.input_data_path: str = input_data_path
+        self.output_data_path: str = output_data_path
+        self.input_structure = input_structure
+        self.attr = attr
 
-    def read_data(self, path):
-        if self.file_structure == "zarr":
-            data = zarr.open(path, mode="r")
-        elif self.file_structure == "npy":
-            data = np.load(path)
+    def read_data(self):
+        if self.input_structure == "zarr":
+            data = zarr.open(
+                os.path.join(self.input_data_path, self.attr + ".zarr"), mode="r"
+            )
+        elif self.input_structure == "npy" or self.input_structure == None:
+            data = np.load(os.path.join(self.input_data_path, self.attr + ".npy"))
         self.data = data
 
-    def structute_data(self, data):
+    def structute_data(self):
         first_iteration = True
 
-        for sim_id in range(data.shape[4]):
-            for i in range(data.shape[3]):
-                x, y, z = data[:, :, :, i, sim_id].nonzero()
-                values = data[x, y, z, i, sim_id]
+        number_of_simulations = self.data.shape[4]
+        number_of_times = self.data.shape[3]
 
-                data = {
+        for sim_id in range(number_of_simulations):
+            for i in range(number_of_times):
+                x, y, z = self.data[:, :, :, i, sim_id].nonzero()
+                values = self.data[x, y, z, i, sim_id]
+
+                data_df = {
                     "simulation": sim_id,
                     "timestamp": i,
                     "x": x,
@@ -32,15 +41,17 @@ class Tabular:
                 }
 
                 if first_iteration:
-                    df = pd.DataFrame(data)
+                    df = pd.DataFrame(data_df)
                     first_iteration = False
                 else:
-                    df = pd.concat([df, pd.DataFrame(data)], ignore_index=True)
+                    df = pd.concat([df, pd.DataFrame(data_df)], ignore_index=True)
 
         self.data = df
 
-    def save_data(self, path):
-        self.data.to_parquet(path)
+    def save_data(self):
+        if not os.path.exists(self.output_data_path):
+            os.makedirs(self.output_data_path)
+        self.data.to_csv(os.path.join(self.output_data_path, self.attr + ".csv"))
 
     def save_to_postgress(self, table_name, connection):
-        self.data.to_sql(table_name, connection, if_exists="replace")
+        pass

@@ -18,7 +18,7 @@ config = {
 
 def main():
     pumle = Pumle(config=config)
-    pumle.run(should_clean_older_files=True, layers_to_keep={"golden_data"})
+    pumle.run(should_clean_older_files=True, layers_to_keep={"tabular_data"})
 
 
 if __name__ == "__main__":

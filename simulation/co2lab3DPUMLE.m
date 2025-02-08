@@ -528,7 +528,7 @@ function co2lab3DPUMLE(varargin)
 
     % Write to file
     fid = fopen(fname_states,'w');
-    if fid == -1
+    if fid == -1'
         error('[EXECUTION] Could not open file: %s', fname_states);
     end
     fprintf(fid,'%s', states_encoded);

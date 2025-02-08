@@ -10,6 +10,7 @@ from src.pumle.parameters_variation import ParametersVariation
 from src.pumle.sim_results_parser import SimResultsParser
 from src.pumle.arrays import Arrays
 from src.pumle.metadata import Metadata
+from src.pumle.tabular import Tabular
 
 
 class Pumle:
@@ -87,7 +88,17 @@ class Pumle:
                 "bronze_data": "data_lake/bronze_data",
                 "silver_data": "data_lake/silver_data",
                 "golden_data": "data_lake/golden_data",
+                "tabular_data": "data_lake/tabular_data",
             }
+
+    def setup(self) -> None:
+        self.logger.info("Pumle setting up")
+        self.set_params_schema()
+        self.set_setup_ini()
+        self.set_root_path()
+        self.set_simulation_script_path()
+        self.set_data_lake_paths()
+        self.set_metadata()
 
     def pre_process(self) -> None:
         base_parameter = Ini(
@@ -113,6 +124,11 @@ class Pumle:
             matFiles = MatFiles(p)
             matFiles.write()
             self.logger.info(f"Mat file {id_} generated")
+
+        if not os.path.exists(self.data_lake["bronze_data"]):
+            os.makedirs(self.data_lake["bronze_data"])
+
+        return all_parameters
 
     def run_simulations(self) -> None:
         num_threads = str(self.config.get("num_threads"))
@@ -144,18 +160,31 @@ class Pumle:
         self.logger.info("Pumle cleaning older files")
         for path in self.data_lake.values():
             if os.path.exists(path):
-                subprocess.run(["rm", "-rf", path, "*"])
+                for root, dirs, files in os.walk(path):
+                    for file in files:
+                        os.remove(os.path.join(root, file))
 
         self.logger.info("Pumle cleaned older files")
 
     def create_data_lake(self) -> None:
         self.logger.info("Pumle creating data lake directories")
         for path in self.data_lake.values():
-            os.makedirs(path)
+            if not os.path.exists(path):
+                os.makedirs(path)
 
     def exclude_previous_layers(self, layer) -> None:
         if os.path.exists(self.data_lake[layer]):
             subprocess.run(["rm", "-rf", self.data_lake[layer]])
+
+    def save_tabular_data(self) -> None:
+        tab = Tabular(
+            self.data_lake["golden_data"],
+            self.data_lake["tabular_data"],
+            self.config.get("saving_method"),
+        )
+        tab.read_data()
+        tab.structute_data()
+        tab.save_data()
 
     def run(
         self,
@@ -165,6 +194,7 @@ class Pumle:
             "bronze_data",
             "silver_data",
             "golden_data",
+            "tabular_data",
         },
     ) -> None:
         start_time = time.time()
@@ -204,6 +234,9 @@ class Pumle:
 
         if "silver_data" not in layers_to_keep:
             self.exclude_previous_layers("silver_data")
+
+        self.logger.info("Pumle saving tabular data")
+        self.save_tabular_data()
 
         self.logger.info("Pumle Finished")
         print("--- %s seconds ---" % (time.time() - start_time))
