@@ -19,6 +19,7 @@ class Pumle:
         self.logger = logging.getLogger("pumle")
         self.logger.setLevel(logging.DEBUG)
         self.logger.addHandler(logging.StreamHandler())
+        self.setup()
         self.logger.info("Pumle initialized")
 
     def set_root_path(self) -> None:
@@ -127,6 +128,8 @@ class Pumle:
 
         if not os.path.exists(self.data_lake["bronze_data"]):
             os.makedirs(self.data_lake["bronze_data"])
+
+        self.configs = parameters.generate_parameter_variations()
 
         return all_parameters
 

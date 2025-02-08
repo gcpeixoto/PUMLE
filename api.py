@@ -18,38 +18,52 @@ CONFIG = {
     "num_threads": 4,
 }
 
+pumle = Pumle(config=CONFIG)
+cache = []
+use_cache = True
+
 
 def run_simulation(simulation_id: str):
     """Executes the simulation in the background."""
     try:
-        pumle = Pumle(config=CONFIG)
-        pumle.setup()
-        configs = pumle.pre_process()
-        layers_to_keep = {"tabular_data"}
+        pumle.pre_process()
 
-        simulations[simulation_id] = {"status": "running", "configs": configs}
-        pumle.run_simulations()
+        if use_cache:
+            for config in pumle.configs[:]:
+                if config not in cache:
+                    cache.append(config)
+                else:
+                    pumle.configs.remove(config)
 
-        if "pre_bronze" not in layers_to_keep:
-            pumle.exclude_previous_layers("pre_bronze")
-        if "metadata" not in layers_to_keep:
-            pumle.exclude_previous_layers("metadata")
+        if pumle.configs == []:
+            simulations[simulation_id] = {"status": "completed", "configs": []}
+        else:
+            config_to_log = [i["Fluid"] for i in pumle.configs]
 
-        simulations[simulation_id] = {"status": "saving data", "configs": configs}
-        pumle.post_process()
-
-        if "bronze_data" not in layers_to_keep:
-            pumle.exclude_previous_layers("bronze_data")
-
-        pumle.save_data()
-
-        if "silver_data" not in layers_to_keep:
-            pumle.exclude_previous_layers("silver_data")
-
-        pumle.save_tabular_data()
-        simulations[simulation_id] = {"status": "completed", "configs": configs}
+            simulations[simulation_id] = {"status": "running", "configs": config_to_log}
+            pumle.run_simulations()
     except Exception as e:
         simulations[simulation_id] = {"status": f"failed: {str(e)}"}
+
+
+@app.post("/persist/{simulation_id}")
+def persists_data(simulation_id: str):
+
+    config_to_log = [i["Fluid"] for i in pumle.configs]
+    simulations[simulation_id] = {
+        "status": "saving data",
+        "configs": config_to_log,
+    }
+    pumle.post_process()
+
+    pumle.save_data()
+
+    pumle.save_tabular_data()
+    simulations[simulation_id] = {
+        "status": "completed",
+        "configs": config_to_log,
+    }
+    return simulations[simulation_id]
 
 
 @app.post("/run")
