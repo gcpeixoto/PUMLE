@@ -6,11 +6,8 @@
 [x] Pass the threads numbers as a parameter
 [x] Create a new layer for structured data
 [x] Create a notebook reading and ploting the golden data
-[] conect the id with the parameters
-[] Save all the stuff in a postgress using index
-[] create an API to talk with the postgress 
 [] Add more documentation
-[] Give S3 possibility
+[x] Give S3 possibility
 [] Add Docker (maybe)
 [] Add Airflow (maybe)
 

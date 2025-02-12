@@ -15,8 +15,7 @@ def convert_ndarray(obj):
 
 def read_json(json_path):
     with open(json_path, "r", encoding="utf-8") as file:
-        readed_json = json.load(file)
-    return readed_json
+        return json.load(file)
 
 
 def write_json(json_path, data):

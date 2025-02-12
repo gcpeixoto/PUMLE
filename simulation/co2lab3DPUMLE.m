@@ -157,7 +157,7 @@ function co2lab3DPUMLE(varargin)
 
     %% Trap Analysis with logging
     % fprintf('[EXECUTION] Performing trap analysis...\n');
-    [Gt, Gaux] = topSurfaceGrid(G);
+    [Gt, ~] = topSurfaceGrid(G);
     trapSt = trapAnalysis(Gt, false);
     trap_volume = volumesOfTraps(Gt, trapSt, unique(trapSt.traps(trapSt.traps > 0)));
     % fprintf('[EXECUTION] Trap analysis completed. Number of traps: %d\n', numel(unique(trapSt.traps(trapSt.traps > 0))));
@@ -489,7 +489,7 @@ function co2lab3DPUMLE(varargin)
 
     % fprintf('[EXECUTION] Starting simulation with simulateScheduleAD...\n');
     try
-        [wellSol, states] = simulateScheduleAD(initState, model, schedule);
+        [~, states] = simulateScheduleAD(initState, model, schedule);
     catch ME
         % fprintf('[EXECUTION] Error during simulation: %s\n', ME.message);
         rethrow(ME);
@@ -528,7 +528,7 @@ function co2lab3DPUMLE(varargin)
 
     % Write to file
     fid = fopen(fname_states,'w');
-    if fid == -1'
+    if fid == -1
         error('[EXECUTION] Could not open file: %s', fname_states);
     end
     fprintf(fid,'%s', states_encoded);

@@ -12,4 +12,4 @@ class Parameters:
         self.max_value = self.base_value * (1 + variation_delta)
 
     def __str__(self):
-        return f"{self.name}: {self.value} ({self.description})"
+        return f"{self.name}: {self.base_value} ({self.description})"

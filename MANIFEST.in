@@ -1,0 +1,4 @@
+include README.md
+include GLOSSARY.md
+include LICENSE
+include setup.ini

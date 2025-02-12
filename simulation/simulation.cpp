@@ -10,7 +10,7 @@
 namespace fs = std::filesystem;
 
 // Function to run a single Octave simulation with given parameters
-void run_simulation(const std::string& folder, int sim_id) {
+int run_simulation(const std::string& folder, int sim_id) {
     std::vector<std::string> param_files = {
         "Paths", "PreProcessing", "Grid", "Fluid", 
         "InitialConditions", "BoundaryConditions", "Wells", 
@@ -22,7 +22,7 @@ void run_simulation(const std::string& folder, int sim_id) {
         std::string file_path = folder + "/" + param + "ParamsPUMLE_" + std::to_string(sim_id) + ".mat";
         if (!fs::exists(file_path)) {
             std::cerr << "Missing required file: " << file_path << "\n";
-           return;
+           return 1;
         }
         command += "'" + file_path + "', ";
     }
@@ -31,8 +31,10 @@ void run_simulation(const std::string& folder, int sim_id) {
     std::cout << "Running simulation " << sim_id << " with parameters in " << folder << std::endl;
     int status = std::system(command.c_str());
     if (status != 0) {
-        std::cerr << "Simulation " << sim_id << " failed!\n";
+        std::cerr << "Simulation " << sim_id << " failed with status: " << status << std::endl;
+        return 1;
     }
+    return 0;
 }
     
 
@@ -63,13 +65,26 @@ int main() {
 
     chdir("./simulation/");
 
-    #pragma omp parallel for schedule(dynamic)
+    int global_status = 0;
+
+    #pragma omp parallel for schedule(dynamic) shared(global_status)
     for (int i = 0; i < num_simulations; ++i) {
-        run_simulation(folders[i], i + 1);
+        int status = run_simulation(folders[i], i + 1);
+
+        if (status != 0) {
+            std::cerr << "Simulation " << i + 1 << " failed." << std::endl;
+            #pragma omp critical
+            {
+                global_status = status;
+            }
+        }
+    }
+
+    if (global_status != 0) {
+        return global_status;
     }
 
     chdir("../");
-    
 
     std::cout << "All simulations completed." << std::endl;
     return 0;
