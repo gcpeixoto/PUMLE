@@ -1,7 +1,7 @@
 import configparser
 import os
 from typing import Dict, List, Tuple
-from src.pumle.paths import Paths
+from pumle.paths import Paths
 
 
 class Ini:

@@ -15,5 +15,9 @@ notebooks
 ipynb/figures/
 ipynb/model/
 src/pumle/__pycache__/
+src/pumle.egg-info/
 simulation/*.out
 __pycache__
+dist
+build
+pumle.egg-info

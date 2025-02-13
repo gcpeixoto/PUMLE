@@ -2,7 +2,7 @@
 import os
 from typing import Tuple
 import numpy as np
-from src.pumle.utils import convert_ndarray, read_json, write_json
+from pumle.utils import convert_ndarray, read_json, write_json
 
 
 class SimResultsParser:

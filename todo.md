@@ -9,8 +9,3 @@
 [] Add more documentation
 [x] Give S3 possibility
 [] Add Docker (maybe)
-[] Add Airflow (maybe)
-
-Times:
---- 10.543886085351309 minutes ---
---- 21.17038479646047 minutes ---

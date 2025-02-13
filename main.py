@@ -1,5 +1,5 @@
 import os
-from src.pumle.pumle import Pumle
+from pumle import Pumle
 
 
 def set_root_path():

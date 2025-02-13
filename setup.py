@@ -21,6 +21,22 @@ def load_requirements(filename="requirements.txt"):
         return [line.strip() for line in f if line.strip() and not line.startswith("#")]
 
 
+def get_data_files():
+    data_files = []
+    # Include setup.ini and simulation_script.sh in the root
+    data_files.append(("", ["setup.ini", "simulation_script.sh"]))
+
+    # Include all files in benchmark and simulation folders
+    for folder in ["benchmark", "simulation"]:
+        file_list = []
+        for root, dirs, files in os.walk(folder):
+            for file in files:
+                file_list.append(os.path.join(root, file))
+        if file_list:
+            data_files.append((folder, file_list))
+    return data_files
+
+
 setuptools.setup(
     name="pumle",
     version=load_version(),
@@ -33,9 +49,14 @@ setuptools.setup(
     package_dir={"": "src"},
     packages=setuptools.find_packages(where="src"),
     install_requires=load_requirements(),
+    include_package_data=True,
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
     ],
     python_requires=">=3.10",
+    data_files=get_data_files(),
+    package_data={
+        "pumle": ["*", "simulation_script.sh", "benchmark/**/*", "simulation/**/*"],
+    },
 )

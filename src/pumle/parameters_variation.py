@@ -1,5 +1,5 @@
 import numpy as np
-from src.pumle.parameters import Parameters
+from pumle.parameters import Parameters
 from copy import deepcopy
 import os
 import json
@@ -22,6 +22,7 @@ class ParametersVariation:
         self.cache_file = cache_file
         if self.cache_file:
             if not os.path.exists(self.cache_file):
+                os.mkdir(os.path.dirname(self.cache_file))
                 with open(self.cache_file, "w") as f:
                     json.dump([], f)
             self.cache = self.load_variations_from_cache()

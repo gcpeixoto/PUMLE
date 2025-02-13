@@ -1,17 +1,16 @@
-# src/pumle/pumle.py
 import logging
 import os
 import subprocess
 import time
 from typing import Dict, List, Tuple
 
-from src.pumle.ini import Ini
-from src.pumle.mat_files import MatFiles
-from src.pumle.parameters_variation import ParametersVariation
-from src.pumle.sim_results_parser import SimResultsParser
-from src.pumle.arrays import Arrays
-from src.pumle.metadata import Metadata
-from src.pumle.tabular import Tabular
+from pumle.ini import Ini
+from pumle.mat_files import MatFiles
+from pumle.parameters_variation import ParametersVariation
+from pumle.sim_results_parser import SimResultsParser
+from pumle.arrays import Arrays
+from pumle.metadata import Metadata
+from pumle.tabular import Tabular
 
 
 class Pumle:
@@ -151,7 +150,7 @@ class Pumle:
             result = subprocess.run(["sh", self.simulation_script_path])
         else:
             result = subprocess.run(["sh", self.simulation_script_path, num_threads])
-            
+
         if result.returncode != 0:
             self.logger.error("Simulation failed")
             raise RuntimeError("Simulation failed")
@@ -229,7 +228,7 @@ class Pumle:
         if should_clean_older_files:
             self.clean_older_files()
             self.create_data_lake()
-    
+
         self.logger.info("Pumle pre-processing")
         self.pre_process()
         self.logger.info("Pumle running simulations")
@@ -242,18 +241,18 @@ class Pumle:
 
         self.logger.info("Pumle post-processing")
         self.post_process()
-        
+
         if "bronze_data" not in layers_to_keep:
             self.exclude_previous_layers("bronze_data")
-        
+
         self.logger.info("Pumle saving data")
         self.save_data()
         if "silver_data" not in layers_to_keep:
             self.exclude_previous_layers("silver_data")
-        
+
         self.logger.info("Pumle saving tabular data")
         self.save_tabular_data()
-        
+
         self.logger.info("Pumle Finished")
         elapsed = time.time() - start_time
         print(f"--- {elapsed:.2f} seconds ---")

@@ -2,8 +2,9 @@ import os
 import numpy as np
 import zarr
 from typing import Tuple, List
-from src.pumle.utils import read_json
-from src.pumle.cloud_storage import CloudStorage  # Assuming PYTHONPATH includes src/
+from pumle.utils import read_json
+from pumle.cloud_storage import CloudStorage
+
 
 class Arrays:
     def __init__(self, input_data_path: str, output_data_path: str):
@@ -70,7 +71,12 @@ class Arrays:
         )
         z[:] = data
 
-    def save_golden_data(self, saving_method="default", upload_to_s3: bool = False, s3_config: dict = None):
+    def save_golden_data(
+        self,
+        saving_method="default",
+        upload_to_s3: bool = False,
+        s3_config: dict = None,
+    ):
         """
         Save consolidated data to the output_data_path and optionally upload to S3.
         Parameters:
