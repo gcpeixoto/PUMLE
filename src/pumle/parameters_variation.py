@@ -60,9 +60,14 @@ class ParametersVariation:
             for i, parameter in enumerate(self.selected_parameters):
                 variation[self.class_of_parameters][parameter] = combination[i]
 
-            variation["SimNums"]["sim_id"] = (
-                sim_id + len(os.listdir("data_lake/silver_data")) + 1
-            )
+            # TODO: Fix this path
+            if os.path.exists("data_lake/silver_data"):
+                variation["SimNums"]["sim_id"] = (
+                    sim_id + len(os.listdir("data_lake/silver_data")) + 1
+                )
+            else:
+                variation["SimNums"]["sim_id"] = sim_id + 1
+
             variations.append(variation)
 
         return variations

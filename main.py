@@ -9,8 +9,8 @@ def set_root_path():
 
 CONFIG = {
     "root_path": set_root_path(),
-    "selected_parameters": ["pres_ref", "temp_ref"],
-    "variation_delta": 0.3,
+    "selected_parameters": ["pres_ref"],
+    "variation_delta": 0.2,
     "save_metadata": True,
     "num_threads": 4,
     "saving_method": "numpy",  # or "zarr"
@@ -22,14 +22,14 @@ CONFIG = {
         "region_name": "us-east-1",
     },
     "cache_path": "resources/cache",
-    "clear_cache": True,
+    "clear_cache": False,
 }
 
 
 def main():
     pumle = Pumle(config=CONFIG)
     pumle.run(
-        should_clean_older_files=True,
+        should_clean_older_files=False,
         layers_to_keep={
             "staging",
             "bronze_data",

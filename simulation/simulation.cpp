@@ -55,6 +55,9 @@ int main() {
         }
     }
     
+    if (!fs::exists(output_directory)) {
+        fs::create_directory(output_directory);
+    }
     std::vector<std::string> output_folders;
     for (const auto& entry : fs::directory_iterator(output_directory)) {
         output_folders.push_back(entry.path().string());
@@ -78,10 +81,12 @@ int main() {
 
     chdir("./simulation/");
 
-    int global_status = 0;
+    // TODO: Find the error here
 
+    int global_status = 0;
+    int number_of_simulations_to_run = num_simulations + num_simulations_already_run;
     #pragma omp parallel for schedule(dynamic) shared(global_status)
-    for (int i = num_simulations_already_run; i < num_simulations; ++i) {
+    for (int i = num_simulations_already_run; i < number_of_simulations_to_run; ++i) {
         int status = run_simulation(folders[i], i + 1);
 
         if (status != 0) {
