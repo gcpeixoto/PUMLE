@@ -1,4 +1,5 @@
 import os
+
 from scipy.io import savemat
 
 
@@ -21,8 +22,8 @@ class MatFiles:
         mroot = os.path.join(
             self.params["Paths"]["PUMLE_ROOT"],
             "data_lake",
-            "pre_bronze",
-            f"pre_bronze_{sim_id}",
+            "staging",
+            f"staging_{sim_id}",
         )
         self._create_directory(mroot)
         for section, content in self.params.items():

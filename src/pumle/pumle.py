@@ -2,15 +2,16 @@ import logging
 import os
 import subprocess
 import time
-from typing import Dict, List, Tuple
+import hashlib
 
-from pumle.ini import Ini
-from pumle.mat_files import MatFiles
-from pumle.parameters_variation import ParametersVariation
-from pumle.sim_results_parser import SimResultsParser
-from pumle.arrays import Arrays
-from pumle.metadata import Metadata
-from pumle.tabular import Tabular
+from typing import Dict, List
+from src.pumle.ini import Ini
+from src.pumle.mat_files import MatFiles
+from src.pumle.parameters_variation import ParametersVariation
+from src.pumle.sim_results_parser import SimResultsParser
+from src.pumle.arrays import Arrays
+from src.pumle.metadata import Metadata
+from src.pumle.utils import write_json
 
 
 class Pumle:
@@ -97,11 +98,10 @@ class Pumle:
             "data_lake_paths",
             {
                 "metadata": "data_lake/metadata",
-                "pre_bronze": "data_lake/pre_bronze",
+                "staging": "data_lake/staging",
                 "bronze_data": "data_lake/bronze_data",
                 "silver_data": "data_lake/silver_data",
                 "golden_data": "data_lake/golden_data",
-                "tabular_data": "data_lake/tabular_data",
             },
         )
 
@@ -114,6 +114,14 @@ class Pumle:
         self.set_data_lake_paths()
         self.set_metadata()
 
+    def clear_cache(self) -> None:
+        if self.config.get("clear_cache", False):
+            print("Clearing cache")
+            if os.path.exists(self.config.get("cache_path")):
+                for root, _, files in os.walk(self.config.get("cache_path")):
+                    for file in files:
+                        os.remove(os.path.join(root, file))
+
     def pre_process(self) -> List[dict]:
         base_parameter = Ini(
             self.root_path, self.setup_ini, self.params_schema
@@ -125,22 +133,37 @@ class Pumle:
             base_parameters=base_parameter,
             selected_parameters=self.config.get("selected_parameters"),
             variation_delta=self.config.get("variation_delta"),
-            cache_file=self.config.get("parameters_variation_cache"),
         )
         all_parameters = parameters_variation.generate_parameter_variations()
         if self.config.get("save_metadata"):
             self.meta.get_data(
                 parameters=all_parameters, base_schema=self.params_schema
             )
-            self.meta.save_bronze_data()
 
-        for p in all_parameters:
-            sim_id = p["SimNums"]["sim_id"]
+        self.clear_cache()
+
+        self.has_at_least_one_sim = False
+        for i, p in enumerate(all_parameters):
+            hashed_p = hashlib.sha256(str(p["Fluid"]).encode()).hexdigest()
+
+            current_cache_path = os.path.join(
+                self.config.get("cache_path"), f"staging_input_{hashed_p}.json"
+            )
+            if os.path.exists(current_cache_path):
+                self.logger.info(f"Mat file {i+1} already generated")
+                continue
+
+            self.has_at_least_one_sim = True
             mat_files = MatFiles(p)
             mat_files.write()
-            self.logger.info(f"Mat file {sim_id} generated")
-        if not os.path.exists(self.data_lake["bronze_data"]):
-            os.makedirs(self.data_lake["bronze_data"])
+            write_json(
+                current_cache_path,
+                p,
+            )
+
+            self.logger.info(f"Mat file {i+1} generated")
+
+        os.makedirs(self.data_lake["bronze_data"], exist_ok=True)
         self.configs = all_parameters
         return all_parameters
 
@@ -160,7 +183,6 @@ class Pumle:
         parser.save_all(self.data_lake["silver_data"])
         if self.config.get("save_metadata"):
             self.meta.get_data(dimensions=parser.get_dimensions())
-            self.meta.save_silver_data()
 
     def save_data(self) -> None:
         arrays_obj = Arrays(
@@ -179,46 +201,37 @@ class Pumle:
             )
         if self.config.get("save_metadata"):
             self.meta.get_data(timestamps=arrays_obj.timestamps)
-            self.meta.save_golden_data()
 
     def clean_older_files(self) -> None:
         self.logger.info("Pumle cleaning older files")
         for path in self.data_lake.values():
             if os.path.exists(path):
                 for root, dirs, files in os.walk(path):
-                    for file in files:
-                        os.remove(os.path.join(root, file))
+                    if path == self.data_lake["staging"]:
+                        for dir in dirs:
+                            subprocess.run(["rm", "-rf", os.path.join(root, dir)])
+                    else:
+                        for file in files:
+                            os.remove(os.path.join(root, file))
         self.logger.info("Pumle cleaned older files")
 
     def create_data_lake(self) -> None:
         self.logger.info("Pumle creating data lake directories")
         for path in self.data_lake.values():
-            if not os.path.exists(path):
-                os.makedirs(path)
+            os.makedirs(path, exist_ok=True)
 
     def exclude_previous_layers(self, layer) -> None:
         if os.path.exists(self.data_lake[layer]):
             subprocess.run(["rm", "-rf", self.data_lake[layer]])
 
-    def save_tabular_data(self) -> None:
-        tab = Tabular(
-            self.data_lake["golden_data"],
-            self.data_lake["tabular_data"],
-            self.config.get("saving_method"),
-        )
-        tab.read_data()
-        tab.structute_data()
-        tab.save_data()
-
     def run(
         self,
         should_clean_older_files: bool = False,
         layers_to_keep: set = {
-            "pre_bronze",
+            "staging",
             "bronze_data",
             "silver_data",
             "golden_data",
-            "tabular_data",
         },
     ) -> None:
         start_time = time.time()
@@ -231,11 +244,16 @@ class Pumle:
 
         self.logger.info("Pumle pre-processing")
         self.pre_process()
+
+        if not self.has_at_least_one_sim:
+            self.logger.info("No simulations to run")
+            return
+
         self.logger.info("Pumle running simulations")
         self.run_simulations()
 
-        if "pre_bronze" not in layers_to_keep:
-            self.exclude_previous_layers("pre_bronze")
+        if "staging" not in layers_to_keep:
+            self.exclude_previous_layers("staging")
         if "metadata" not in layers_to_keep:
             self.exclude_previous_layers("metadata")
 
@@ -249,9 +267,6 @@ class Pumle:
         self.save_data()
         if "silver_data" not in layers_to_keep:
             self.exclude_previous_layers("silver_data")
-
-        self.logger.info("Pumle saving tabular data")
-        self.save_tabular_data()
 
         self.logger.info("Pumle Finished")
         elapsed = time.time() - start_time

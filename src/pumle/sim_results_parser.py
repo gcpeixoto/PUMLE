@@ -1,8 +1,8 @@
-# src/pumle/sim_results_parser.py
 import os
-from typing import Tuple
 import numpy as np
-from pumle.utils import convert_ndarray, read_json, write_json
+
+from typing import Tuple
+from src.pumle.utils import convert_ndarray, read_json, write_json
 
 
 class SimResultsParser:
@@ -75,8 +75,7 @@ class SimResultsParser:
         return convert_ndarray(result)
 
     def save_all(self, path):
-        if not os.path.exists(path):
-            os.makedirs(path)
+        os.makedirs(path, exist_ok=True)
         for i in range(1, self.max_sim_id + 1):
             path_consolidated = os.path.join(path, f"GCS01_{i}.json")
             data = self.get_all(i - 1)

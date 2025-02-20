@@ -40,18 +40,31 @@ int run_simulation(const std::string& folder, int sim_id) {
 
 int main() {
     std::string current_path = fs::current_path().string();
-    std::string data_lake_path = "/data_lake/pre_bronze/";
+
+    std::string data_lake_path = "/data_lake/staging/";
+    std::string output_data_lake_path = "/data_lake/silver_data/";
+    
     std::string directory = current_path + data_lake_path;
+    std::string output_directory = current_path + output_data_lake_path;
+
 
     std::vector<std::string> folders;
     for (const auto& entry : fs::directory_iterator(directory)) {
-        if (entry.is_directory() && entry.path().string().find("pre_bronze_") != std::string::npos) {
+        if (entry.is_directory() && entry.path().string().find("staging_") != std::string::npos) {
             folders.push_back(entry.path().string());
         }
     }
+    
+    std::vector<std::string> output_folders;
+    for (const auto& entry : fs::directory_iterator(output_directory)) {
+        output_folders.push_back(entry.path().string());
+    }
 
     int num_simulations = folders.size();
-
+    // Workaround to skip already run simulations
+    int num_simulations_already_run = output_folders.size();
+    
+    std::cout << "Found " << num_simulations_already_run << " simulations already run." << std::endl;
     std::sort(folders.begin(), folders.end(), [](const std::string& a, const std::string& b) {
         return std::stoi(a.substr(a.find_last_of("_") + 1)) < std::stoi(b.substr(b.find_last_of("_") + 1));
     });
@@ -68,7 +81,7 @@ int main() {
     int global_status = 0;
 
     #pragma omp parallel for schedule(dynamic) shared(global_status)
-    for (int i = 0; i < num_simulations; ++i) {
+    for (int i = num_simulations_already_run; i < num_simulations; ++i) {
         int status = run_simulation(folders[i], i + 1);
 
         if (status != 0) {

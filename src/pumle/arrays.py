@@ -1,9 +1,10 @@
 import os
 import numpy as np
 import zarr
+
 from typing import Tuple, List
-from pumle.utils import read_json
-from pumle.cloud_storage import CloudStorage
+from src.pumle.utils import read_json
+from src.pumle.cloud_storage import CloudStorage
 
 
 class Arrays:
@@ -91,8 +92,7 @@ class Arrays:
         to_save = {"pressure": p, "sw": sw, "sg": sg}
         save_engine = {"numpy": self.save_npy, "zarr": self.save_zarr}
         fn = save_engine.get(saving_method.strip().lower())
-        if not os.path.exists(self.output_data_path):
-            os.makedirs(self.output_data_path)
+        os.makedirs(self.output_data_path, exist_ok=True)
         saved_files = []
         if fn:
             for name, data in to_save.items():
