@@ -8,4 +8,7 @@
 [x] Create a notebook reading and ploting the golden data
 [] Add more documentation
 [x] Give S3 possibility
-[] Add Docker (maybe)
+[] Add Docker
+[] Melhorar cache 
+[] Fazer API com front e back
+[] Incluir MonetDB

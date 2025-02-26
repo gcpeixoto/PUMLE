@@ -74,6 +74,13 @@ class SimResultsParser:
         self.dimensions = dimensions
         return convert_ndarray(result)
 
+    def all_data(self):
+        all_data = []
+        for i in range(1, self.max_sim_id + 1):
+            data = self.get_all(i - 1)
+            all_data.append(all_data)
+        return all_data
+
     def save_all(self, path):
         os.makedirs(path, exist_ok=True)
         for i in range(1, self.max_sim_id + 1):
