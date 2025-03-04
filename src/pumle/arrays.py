@@ -8,20 +8,8 @@ from src.pumle.cloud_storage import CloudStorage
 
 
 class Arrays:
-    def __init__(self, input_data_path: str, output_data_path: str):
-        self.input_data_path: str = input_data_path
+    def __init__(self, output_data_path: str):
         self.output_data_path: str = output_data_path
-        self.number_of_inputs: int = self._get_number_of_inputs()
-
-    def _get_number_of_inputs(self) -> int:
-        return len(os.listdir(self.input_data_path))
-
-    def read_jsons(self) -> List:
-        structures = [
-            read_json(os.path.join(self.input_data_path, f"GCS01_{sim_id}.json"))
-            for sim_id in range(1, self.number_of_inputs + 1)
-        ]
-        return structures
 
     def consolidate_data(self, structure) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         i, j, k = structure["dimensions"]
@@ -44,8 +32,9 @@ class Arrays:
         self.timestamps = ts
         return p, sw, sg
 
-    def consolidate_all_data(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        structures = self.read_jsons()
+    def consolidate_all_data(self, result) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        structures = result
+
         p_list = []
         sw_list = []
         sg_list = []
@@ -74,6 +63,8 @@ class Arrays:
 
     def save_golden_data(
         self,
+        sim_id,
+        result=None,
         saving_method="default",
         upload_to_s3: bool = False,
         s3_config: dict = None,
@@ -88,8 +79,8 @@ class Arrays:
         if saving_method == "default":
             saving_method = "numpy"
 
-        p, sw, sg = self.consolidate_all_data()
-        to_save = {"pressure": p, "sw": sw, "sg": sg}
+        p, sw, sg = self.consolidate_data(result)
+        to_save = {f"pressure_{sim_id}": p, f"sw_{sim_id}": sw, f"sg_{sim_id}": sg}
         save_engine = {"numpy": self.save_npy, "zarr": self.save_zarr}
         fn = save_engine.get(saving_method.strip().lower())
         os.makedirs(self.output_data_path, exist_ok=True)

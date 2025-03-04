@@ -72,6 +72,7 @@ function co2lab3DPUMLE(varargin)
     end
 
     simId = num2str(PARAMS.SimNums.sim_id);
+    simHash = PARAMS.SimNums.sim_hash;
 
     % fprintf('[EXECUTION] Parameter sanity checks passed.\n');
 
@@ -510,7 +511,7 @@ function co2lab3DPUMLE(varargin)
     % JSON file name
     fname_states = fullfile(PARAMS.Paths.PUMLE_ROOT,...
         PARAMS.Paths.PUMLE_RESULTS,...
-        strcat('states_',PARAMS.PreProcessing.case_name, '_', simId, '.json'));
+        strcat('states_',PARAMS.PreProcessing.case_name, '_', simHash, '.json'));
     
     fname_g = fullfile(PARAMS.Paths.PUMLE_ROOT,...
         PARAMS.Paths.PUMLE_RESULTS,...
@@ -518,7 +519,7 @@ function co2lab3DPUMLE(varargin)
     
     fname_grdecl = fullfile(PARAMS.Paths.PUMLE_ROOT,...
         PARAMS.Paths.PUMLE_RESULTS,...
-        strcat('grdecl_',PARAMS.PreProcessing.case_name, '_', simId, '.json'));
+        strcat('grdecl_',PARAMS.PreProcessing.case_name, '_', simHash, '.json'));
     
     % Encoding
     states_encoded = jsonencode(states);

@@ -6,11 +6,11 @@ from src.pumle.utils import convert_ndarray, read_json, write_json
 
 
 class SimResultsParser:
-    def __init__(self, result_folder):
+    def __init__(self, result_folder, sim_hash):
         self.result_folder: str = result_folder
+        self.sim_hash: str = sim_hash
         self.field_to_infer_id_max: str = "states"
         self.dimensions_field: str = "g"
-        self.max_sim_id = self._get_sim_id_max()
 
     def _get_json_name(self, sim_type: str, sim_id: int = 1):
         return (
@@ -18,16 +18,6 @@ class SimResultsParser:
             if sim_type != self.dimensions_field
             else f"{self.dimensions_field}_GCS01.json"
         )
-
-    def _get_sim_id_max(self):
-        sim_id = 0
-        while True:
-            json_file_name = self._get_json_name(self.field_to_infer_id_max, sim_id + 1)
-            json_path = os.path.join(self.result_folder, json_file_name)
-            if not os.path.exists(json_path):
-                break
-            sim_id += 1
-        return sim_id
 
     def get_dimensions(self) -> Tuple[int, int, int]:
         json_path = os.path.join(
@@ -37,39 +27,35 @@ class SimResultsParser:
         return i, j, k
 
     def get_active_cells(self):
-        active_cels = [
-            read_json(
-                os.path.join(self.result_folder, self._get_json_name("grdecl", i))
+        active_cel = read_json(
+            os.path.join(
+                self.result_folder, self._get_json_name("grdecl", self.sim_hash)
             )
-            for i in range(1, self.max_sim_id + 1)
-        ]
-        idx_to_get = [np.where(active_cel)[0] for active_cel in active_cels]
-        return active_cels, idx_to_get
+        )
+
+        idx_to_get = np.where(active_cel)[0]
+        return active_cel, idx_to_get
 
     def get_states(self, parameter):
-        all_states = [
-            read_json(
-                os.path.join(self.result_folder, self._get_json_name("states", i))
+        states = read_json(
+            os.path.join(
+                self.result_folder, self._get_json_name("states", self.sim_hash)
             )
-            for i in range(1, self._get_sim_id_max() + 1)
-        ]
-        all_parameters = []
-        for states in all_states:
-            parameters = [state[parameter] for state in states]
-            all_parameters.append(parameters)
-        return all_parameters
+        )
+        parameters = [state[parameter] for state in states]
+        return parameters
 
-    def get_all(self, sim_id: int):
+    def get_all(self):
         dimensions = self.get_dimensions()
         active_cells, idx_to_get = self.get_active_cells()
         pressure = self.get_states("pressure")
         s = self.get_states("s")  # saturation
         result = {
             "dimensions": dimensions,
-            "active_cells": active_cells[sim_id],
-            "idx_to_get": idx_to_get[sim_id],
-            "pressure": pressure[sim_id],
-            "saturation": s[sim_id],
+            "active_cells": active_cells,
+            "idx_to_get": idx_to_get,
+            "pressure": pressure,
+            "saturation": s,
         }
         self.dimensions = dimensions
         return convert_ndarray(result)
@@ -78,7 +64,7 @@ class SimResultsParser:
         all_data = []
         for i in range(1, self.max_sim_id + 1):
             data = self.get_all(i - 1)
-            all_data.append(all_data)
+            all_data.append(data)
         return all_data
 
     def save_all(self, path):

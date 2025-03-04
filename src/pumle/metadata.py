@@ -166,9 +166,9 @@ class Metadata:
 
     def save_metadata(self) -> None:
         self.to_data_frame()
-        self.clean_parameters()
-        self.validate_schema()
-        self.add_dimensions()
-        self.add_timestamps()
-        self.validate_schema()
+        self._clean_parameters()
+        self._validate_schema()
+        self._add_dimensions()
+        self._add_timestamps()
+        self._validate_schema()
         self.parameters.to_csv(os.path.join(self.path, "metadata.csv"))

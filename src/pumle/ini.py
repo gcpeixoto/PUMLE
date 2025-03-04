@@ -50,6 +50,7 @@ class Ini:
 
     def get_paths(self, root_path: str) -> None:
         path = Paths(root_path)
+
         self.params["Paths"]["PUMLE_ROOT"] = path.get_path()
         self.params["Grid"]["file_path"] = path.get_grid_path()
 

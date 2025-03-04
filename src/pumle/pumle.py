@@ -1,6 +1,6 @@
-# src/pumle/pumle.py
 import logging
 import os
+import json
 import subprocess
 import time
 from typing import Dict, List, Tuple
@@ -10,8 +10,9 @@ from src.pumle.mat_files import MatFiles
 from src.pumle.parameters_variation import ParametersVariation
 from src.pumle.sim_results_parser import SimResultsParser
 from src.pumle.arrays import Arrays
-from src.pumle.metadata import Metadata
 from src.pumle.tabular import Tabular
+from src.pumle.utils import generate_param_hash
+from src.pumle.db import DBManager
 
 
 class Pumle:
@@ -20,7 +21,10 @@ class Pumle:
         self.logger = logging.getLogger("pumle")
         self.logger.setLevel(logging.DEBUG)
         self.logger.addHandler(logging.StreamHandler())
+        self.db = DBManager()
+        self.default_parameter_variation = 0.2
         self.setup()
+        self.checks()
         self.logger.info("Pumle initialized")
 
     def checks(self) -> None:
@@ -49,7 +53,7 @@ class Pumle:
 
     def set_params_schema(self) -> None:
         self.params_schema = self.config.get(
-            "parms_schema",
+            "params_schema",
             {
                 "Paths": (["PUMLE_ROOT", "PUMLE_RESULTS"], False),
                 "Pre-Processing": (["case_name", "file_basename", "model_name"], False),
@@ -84,10 +88,6 @@ class Pumle:
             },
         )
 
-    def set_metadata(self) -> None:
-        mpath = os.path.join(self.root_path, "data_lake/metadata")
-        self.meta = Metadata(mpath)
-
     def set_simulation_script_path(self) -> None:
         self.simulation_script_path = os.path.join(
             self.root_path, "simulation_script.sh"
@@ -97,7 +97,6 @@ class Pumle:
         self.data_lake = self.config.get(
             "data_lake_paths",
             {
-                "metadata": "data_lake/metadata",
                 "staging": "data_lake/staging",
                 "bronze_data": "data_lake/bronze_data",
                 "silver_data": "data_lake/silver_data",
@@ -113,7 +112,7 @@ class Pumle:
         self.set_root_path()
         self.set_simulation_script_path()
         self.set_data_lake_paths()
-        self.set_metadata()
+        self.logger.info("Pumle set up")
 
     def pre_process(self) -> List[dict]:
         base_parameter = Ini(
@@ -125,61 +124,66 @@ class Pumle:
         parameters_variation = ParametersVariation(
             base_parameters=base_parameter,
             selected_parameters=self.config.get("selected_parameters"),
-            variation_delta=self.config.get("variation_delta"),
+            variation_delta=self.config.get(
+                "variation_delta", self.default_parameter_variation
+            ),
         )
         all_parameters = parameters_variation.generate_parameter_variations()
-        if self.config.get("save_metadata"):
-            self.meta.get_data(
-                parameters=all_parameters, base_schema=self.params_schema
-            )
-            self.meta.save_bronze_data()
 
         for p in all_parameters:
+            # Gerar sim_hash e staging_folder
+            fluid_params = p.get("Fluid", {})
+            sim_hash = generate_param_hash(fluid_params)
+            p["SimNums"]["sim_hash"] = sim_hash
+            p["SimNums"]["staging_folder"] = f"staging_{sim_hash}"
+
+            # Se você ainda usa sim_id, tudo bem, mas não será pro naming:
             sim_id = p["SimNums"]["sim_id"]
+
+            # Insere no DB se quiser
+            self.db.insert_simulation(sim_hash, sim_id, str(fluid_params))
+
+            # Gera .mat
             mat_files = MatFiles(p)
             mat_files.write()
-            self.logger.info(f"Mat file {sim_id} generated")
-        if not os.path.exists(self.data_lake["bronze_data"]):
-            os.makedirs(self.data_lake["bronze_data"])
+            self.logger.info(f"[pre_process] .mat files created for hash={sim_hash}")
+
         self.configs = all_parameters
         return all_parameters
 
     def run_simulations(self) -> None:
-        num_threads = str(self.config.get("num_threads"))
-        if num_threads is None:
-            result = subprocess.run(["sh", self.simulation_script_path])
-        else:
-            result = subprocess.run(["sh", self.simulation_script_path, num_threads])
+        # Marca no DB como RUNNING
+        for p in self.configs:
+            sim_hash = p["SimNums"]["sim_hash"]
+            self.db.update_sim_status(sim_hash, "RUNNING")
 
+        # Chama o script (que por sua vez chama simulation.cpp).
+        num_threads = str(self.config.get("num_threads", 4))
+        result = subprocess.run(["sh", "simulation_script.sh", num_threads])
         if result.returncode != 0:
-            self.logger.error("Simulation failed")
-            raise RuntimeError("Simulation failed")
+            raise RuntimeError("Simulation script failed")
 
-    def post_process(self) -> None:
-        parser = SimResultsParser(self.data_lake["bronze_data"])
-        parser.save_all(self.data_lake["silver_data"])
-        if self.config.get("save_metadata"):
-            self.meta.get_data(dimensions=parser.get_dimensions())
-            self.meta.save_silver_data()
+        # Se chegou aqui, subimos no DB para COMPLETED
+        for p in self.configs:
+            sim_hash = p["SimNums"]["sim_hash"]
+            self.db.update_sim_status(sim_hash, "COMPLETED")
 
-    def save_data(self) -> None:
-        arrays_obj = Arrays(
-            self.data_lake["silver_data"], self.data_lake["golden_data"]
-        )
+    def post_process(self, sim_hash) -> List[dict]:
+        parser = SimResultsParser(self.data_lake["bronze_data"], sim_hash=sim_hash)
+        result = parser.get_all()
+        return result
+
+    def save_data(self, sim_hash: str, result) -> None:
+        arrays_obj = Arrays(self.data_lake["golden_data"])
         s3_config = self.config.get("s3_config")
-        if self.config.get("saving_method"):
-            arrays_obj.save_golden_data(
-                saving_method=self.config.get("saving_method"),
-                upload_to_s3=self.config.get("upload_to_s3", False),
-                s3_config=s3_config,
-            )
-        else:
-            arrays_obj.save_golden_data(
-                upload_to_s3=self.config.get("upload_to_s3", False), s3_config=s3_config
-            )
-        if self.config.get("save_metadata"):
-            self.meta.get_data(timestamps=arrays_obj.timestamps)
-            self.meta.save_golden_data()
+        method = self.config.get("saving_method", "numpy")
+        arrays_obj.save_golden_data(
+            sim_id=sim_hash,
+            result=result,
+            saving_method=method,
+            upload_to_s3=self.config.get("upload_to_s3", False),
+            s3_config=s3_config,
+        )
 
     def clean_older_files(self) -> None:
         self.logger.info("Pumle cleaning older files")
@@ -188,6 +192,8 @@ class Pumle:
                 for root, dirs, files in os.walk(path):
                     for file in files:
                         os.remove(os.path.join(root, file))
+                    for dir in dirs:
+                        os.rmdir(os.path.join(root, dir))
         self.logger.info("Pumle cleaned older files")
 
     def create_data_lake(self) -> None:
@@ -209,51 +215,3 @@ class Pumle:
         tab.read_data()
         tab.structute_data()
         tab.save_data()
-
-    def run(
-        self,
-        should_clean_older_files: bool = False,
-        layers_to_keep: set = {
-            "staging",
-            "bronze_data",
-            "silver_data",
-            "golden_data",
-            "tabular_data",
-        },
-    ) -> None:
-        start_time = time.time()
-        self.logger.info("Pumle running")
-        self.setup()
-
-        if should_clean_older_files:
-            self.clean_older_files()
-            self.create_data_lake()
-
-        self.logger.info("Pumle pre-processing")
-        self.pre_process()
-        self.logger.info("Pumle running simulations")
-        self.run_simulations()
-
-        if "staging" not in layers_to_keep:
-            self.exclude_previous_layers("staging")
-        if "metadata" not in layers_to_keep:
-            self.exclude_previous_layers("metadata")
-
-        self.logger.info("Pumle post-processing")
-        self.post_process()
-
-        if "bronze_data" not in layers_to_keep:
-            self.exclude_previous_layers("bronze_data")
-
-        self.logger.info("Pumle saving data")
-        self.save_data()
-        if "silver_data" not in layers_to_keep:
-            self.exclude_previous_layers("silver_data")
-
-        self.logger.info("Pumle saving tabular data")
-        self.save_tabular_data()
-
-        self.logger.info("Pumle Finished")
-        elapsed = time.time() - start_time
-        print(f"--- {elapsed:.2f} seconds ---")
-        print(f"--- {elapsed/60:.2f} minutes ---")
