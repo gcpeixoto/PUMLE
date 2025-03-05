@@ -18,6 +18,7 @@ from src.pumle.db import DBManager
 class Pumle:
     def __init__(self, config: Dict) -> None:
         self.config = config
+        self.configs = None
         self.logger = logging.getLogger("pumle")
         self.logger.setLevel(logging.DEBUG)
         self.logger.addHandler(logging.StreamHandler())
@@ -192,8 +193,12 @@ class Pumle:
                 for root, dirs, files in os.walk(path):
                     for file in files:
                         os.remove(os.path.join(root, file))
-                    for dir in dirs:
-                        os.rmdir(os.path.join(root, dir))
+
+        if os.path.exists(self.data_lake["staging"]):
+            for root, dirs, files in os.walk(path):
+                for dir in dirs:
+                    os.rmdir(os.path.join(root, dir))
+
         self.logger.info("Pumle cleaned older files")
 
     def create_data_lake(self) -> None:

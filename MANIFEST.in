@@ -1,8 +1,0 @@
-include README.md
-include GLOSSARY.md
-include LICENSE
-include setup.ini
-include simulation_script.sh
-recursive-include benchmark *
-recursive-include simulation *
-recursive-include resources *

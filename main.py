@@ -1,11 +1,11 @@
-# main.py
-
 import os
 import sqlite3
 from src.pumle.pumle import Pumle
-from src.pumle.db import DBManager  # supondo que você criou db.py
+from src.pumle.db import DBManager
+from dotenv import load_dotenv
 
-# Outras imports se necessário
+load_dotenv()
+
 
 # ------------------------------------------------
 # CONFIGURAÇÃO INICIAL
@@ -15,12 +15,12 @@ CONFIG = {
     "save_metadata": False,
     "num_threads": 4,
     "saving_method": "numpy",
-    "upload_to_s3": False,
+    "upload_to_s3": True,
     "s3_config": {
-        "bucket_name": "your-bucket-name",
-        "aws_access_key": "YOUR_ACCESS_KEY",
-        "aws_secret_key": "YOUR_SECRET_KEY",
-        "region_name": "us-east-1",
+        "bucket_name": os.getenv("S3_BUCKET_NAME"),
+        "aws_access_key": os.getenv("AWS_ACCESS_KEY"),
+        "aws_secret_key": os.getenv("AWS_SECRET_KEY"),
+        "region_name": os.getenv("AWS_REGION_NAME"),
     },
     # "parms_schema": {...}  # Se quiser customizar
 }
@@ -93,6 +93,10 @@ def persist_data():
     # cada variação gera um sim_hash diferente. Aqui, iremos
     # iterar sobre `pumle.configs`.
     print("[INFO] Saving consolidated data (silver->golden)...")
+    if not pumle.configs:
+        print("[INFO] No simulations found.")
+        input("Press Enter to continue...")
+        return
     for conf in pumle.configs:
         sim_hash = conf["SimNums"]["sim_hash"]
 

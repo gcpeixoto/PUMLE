@@ -61,6 +61,9 @@ class Arrays:
         )
         z[:] = data
 
+    def format_name(self, name: str) -> str:
+        return name.split("_")[0]
+
     def save_golden_data(
         self,
         sim_id,
@@ -101,8 +104,8 @@ class Arrays:
                 bucket_name=s3_config["bucket_name"],
                 aws_access_key=s3_config["aws_access_key"],
                 aws_secret_key=s3_config["aws_secret_key"],
-                region_name=s3_config.get("region_name", "us-east-1"),
+                region_name=s3_config.get("region_name", "us-east-2"),
             )
             for name, file_path in saved_files:
-                s3_path = f"consolidated/{name}/{os.path.basename(file_path)}"
+                s3_path = f"consolidated/{self.format_name(name)}/{os.path.basename(file_path)}"
                 storage.upload_file(file_path, s3_path)

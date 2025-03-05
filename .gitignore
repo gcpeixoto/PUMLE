@@ -2,6 +2,7 @@
 *.mat
 *.log
 
+.env
 .vscode
 data_lake/staging/*
 data_lake/silver_data/*
