@@ -2,6 +2,7 @@
 *.mat
 *.log
 
+pumle.db
 .env
 .vscode
 data_lake/staging/*

@@ -21,9 +21,15 @@ class Arrays:
         sg = np.zeros((ncells_total, ts))
 
         for t in range(ts):
-            p[idx_to_get, t] = np.array(structure["pressure"][t]).reshape(-1)
-            sw[idx_to_get, t] = np.array(structure["saturation"][t])[:, 0].reshape(-1)
-            sg[idx_to_get, t] = np.array(structure["saturation"][t])[:, 1].reshape(-1)
+            p[idx_to_get, t] = np.array(structure["pressure"][t]).reshape(
+                -1,
+            )
+            sw[idx_to_get, t] = np.array(structure["saturation"][t])[:, 0].reshape(
+                -1,
+            )
+            sg[idx_to_get, t] = np.array(structure["saturation"][t])[:, 1].reshape(
+                -1,
+            )
 
         p = p.reshape((i, j, k, ts), order="F")
         sw = sw.reshape((i, j, k, ts), order="F")

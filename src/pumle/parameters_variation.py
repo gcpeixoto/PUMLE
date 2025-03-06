@@ -16,7 +16,9 @@ class ParametersVariation:
         self.base_parameters: dict = base_parameters
         self.selected_parameters: list = selected_parameters
         self.variation_delta: float = variation_delta
-        self.points_in_each_parameter: int = int(1 / variation_delta)
+        self.points_in_each_parameter: int = (
+            int(1 / variation_delta) if variation_delta > 0 else 1
+        )
         self.class_of_parameters: str = class_of_parameters
 
         self.get_parameters_combinations()
