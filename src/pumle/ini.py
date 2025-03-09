@@ -1,7 +1,8 @@
 import configparser
+import os
+
 from typing import Dict, List, Tuple
 from src.pumle.paths import Paths
-import os
 
 
 class Ini:
@@ -12,7 +13,6 @@ class Ini:
         sections_schema: Dict[str, Tuple[List[str], bool]],
         cast_bool_params: bool = False,
     ) -> None:
-
         self.path: str = path
         self.sections_schema: Dict[str, Tuple[List[str], bool]] = sections_schema
         self.cast_bool_params: bool = cast_bool_params
@@ -20,21 +20,17 @@ class Ini:
         self.load(root_path)
 
     def _validate_config_file(self) -> None:
-        """Validate if the configuration file exists."""
         if not os.path.isfile(self.path):
             raise FileNotFoundError(f"Configuration file '{self.path}' not found.")
 
     def load(self, root_path: str) -> None:
         config = configparser.ConfigParser()
         config.read(self.path)
-
         params_aux = {}
-
         for section, (params, cast_to_float) in self.sections_schema.items():
             if not config.has_section(section):
                 params_aux[section] = {}
                 continue
-
             section_params = {}
             for param in params:
                 try:
@@ -49,7 +45,6 @@ class Ini:
                         f"Error reading parameter '{param}' from section '{section}': {e}"
                     )
             params_aux[section] = section_params
-
         self.params: dict = params_aux
         self.get_paths(root_path)
 

@@ -2,16 +2,25 @@
 *.mat
 *.log
 
+octave-workspace
+pumle.db
+.env
 .vscode
-data_lake/pre_bronze/*
+data_lake/staging/*
 data_lake/silver_data/*
 data_lake/bronze_data/*
 data_lake/golden_data/*
 data_lake/metadata/*
+resources/cache/*
 notebooks
 .DS_Store
 .ipynb_checkpoints/
 ipynb/figures/
 ipynb/model/
 src/pumle/__pycache__/
+src/pumle.egg-info/
 simulation/*.out
+__pycache__
+dist
+build
+pumle.egg-info

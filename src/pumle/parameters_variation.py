@@ -1,6 +1,8 @@
+import os
 import numpy as np
-from src.pumle.parameters import Parameters
+
 from copy import deepcopy
+from src.pumle.parameters import Parameters
 
 
 class ParametersVariation:
@@ -14,8 +16,11 @@ class ParametersVariation:
         self.base_parameters: dict = base_parameters
         self.selected_parameters: list = selected_parameters
         self.variation_delta: float = variation_delta
-        self.points_in_each_parameter: int = int(1 / variation_delta)
+        self.points_in_each_parameter: int = (
+            int(1 / variation_delta) if variation_delta > 0 else 1
+        )
         self.class_of_parameters: str = class_of_parameters
+
         self.get_parameters_combinations()
 
     def get_parameters(self):
@@ -39,17 +44,13 @@ class ParametersVariation:
 
     def get_parameters_combinations(self):
         parameters = self.get_parameters()
-
         parameters_combinations = []
         for parameter in parameters:
             range_of_values = np.linspace(
                 parameter.min_value, parameter.max_value, self.points_in_each_parameter
             )
-            all_values = []
-            for value in range_of_values:
-                all_values.append(value)
+            all_values = list(range_of_values)
             parameters_combinations.append(all_values)
-
         self.parameters_combinations = self._format_combinations(
             parameters_combinations
         )
@@ -60,7 +61,9 @@ class ParametersVariation:
             variation = deepcopy(self.base_parameters)
             for i, parameter in enumerate(self.selected_parameters):
                 variation[self.class_of_parameters][parameter] = combination[i]
+
             variation["SimNums"]["sim_id"] = sim_id + 1
 
             variations.append(variation)
+
         return variations

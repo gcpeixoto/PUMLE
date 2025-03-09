@@ -1,5 +1,16 @@
 import numpy as np
 import json
+import hashlib
+
+
+def generate_param_hash(params_dict: dict) -> str:
+    """
+    Gera um hash (ID único) a partir dos parâmetros do dicionário.
+    """
+    # dumps com sort_keys=True garante consistência na ordem das chaves
+    param_str = json.dumps(params_dict, sort_keys=True)
+    hash_obj = hashlib.md5(param_str.encode("utf-8")).hexdigest()
+    return hash_obj[:8]
 
 
 def convert_ndarray(obj):
@@ -15,8 +26,7 @@ def convert_ndarray(obj):
 
 def read_json(json_path):
     with open(json_path, "r", encoding="utf-8") as file:
-        readed_json = json.load(file)
-    return readed_json
+        return json.load(file)
 
 
 def write_json(json_path, data):

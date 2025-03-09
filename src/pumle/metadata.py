@@ -1,10 +1,8 @@
 import pandas as pd
 import os
-from pydantic import BaseModel, Field
+import pandera as pa
 
 from functools import reduce
-
-import pandera as pa
 
 base_chema = pa.DataFrameSchema(
     {
@@ -65,15 +63,8 @@ class Metadata:
     def to_data_frame(self) -> None:
         self.parameters = pd.DataFrame(self.parameters)
 
-    def save_bronze_data(self) -> None:
-        self.to_data_frame()
-        self.parameters.reset_index().to_csv(
-            os.path.join(self.path, "bronze_metadata.csv")
-        )
-
     def _format_column_name(self, *column_name):
         clear = lambda x: x.replace(" ", "_").replace("-", "_").lower()
-
         return reduce(lambda x, y: clear(x) + "__" + clear(y), column_name)
 
     def _cast_columns(self, df, columns, dtype):
@@ -109,7 +100,7 @@ class Metadata:
             float,
         )
 
-    def clean_parameters(self) -> None:
+    def _clean_parameters(self) -> None:
         columns_to_parse = {
             "Fluid",
             "Initial Conditions",
@@ -118,7 +109,6 @@ class Metadata:
             "Schedule",
             "SimNums",
         }
-
         columns_to_drop = [
             "Paths",
             "Pre-Processing",
@@ -131,17 +121,13 @@ class Metadata:
             "EXECUTION",
             "SimNums",
         ]
-
         for main_field, (child_fields, _) in self.base_schema.items():
             if main_field not in columns_to_parse:
                 continue
-
             values = self.parameters[main_field].values
-
             values_extracted = (
                 values if isinstance(values[0], dict) else list(map(eval, values))
             )
-
             for child_field in child_fields:
                 values = [value[child_field] for value in values_extracted]
                 if child_field == self.parameters_id:
@@ -150,48 +136,39 @@ class Metadata:
                     self.parameters[
                         self._format_column_name(main_field, child_field)
                     ] = values
-
         self.parameters.drop(columns=columns_to_drop, inplace=True)
         self._cast_base_cols()
 
-    def validate_schema(self) -> None:
+    def _validate_schema(self) -> None:
         self.schema.validate(self.parameters)
 
-    def add_dimensions(self) -> None:
+    def _add_dimensions(self) -> None:
         self.parameters["dimension_x"] = self.dimensions[0]
         self.parameters["dimension_y"] = self.dimensions[1]
         self.parameters["dimension_z"] = self.dimensions[2]
-
         self._cast_columns(
             self.parameters, ["dimension_x", "dimension_y", "dimension_z"], int
         )
-
         dimensions_schema = {
             "dimension_x": pa.Column(int, checks=pa.Check.gt(0), nullable=False),
             "dimension_y": pa.Column(int, checks=pa.Check.gt(0), nullable=False),
             "dimension_z": pa.Column(int, checks=pa.Check.gt(0), nullable=False),
         }
-
         self.schema.add_columns(dimensions_schema)
 
-    def add_timestamps(self) -> None:
+    def _add_timestamps(self) -> None:
         self.parameters["timestamps"] = self.timestamps
-
         self._cast_columns(self.parameters, ["timestamps"], int)
-
         timestamps_schema = {
             "timestamps": pa.Column(int, checks=pa.Check.gt(0), nullable=False),
         }
-
         self.schema.add_columns(timestamps_schema)
 
-    def save_silver_data(self) -> None:
-        self.clean_parameters()
-        self.validate_schema()
-        self.parameters.to_csv(os.path.join(self.path, "silver_metadata.csv"))
-
-    def save_golden_data(self) -> None:
-        self.add_dimensions()
-        self.add_timestamps()
-        self.validate_schema()
-        self.parameters.to_csv(os.path.join(self.path, "golden_metadata.csv"))
+    def save_metadata(self) -> None:
+        self.to_data_frame()
+        self._clean_parameters()
+        self._validate_schema()
+        self._add_dimensions()
+        self._add_timestamps()
+        self._validate_schema()
+        self.parameters.to_csv(os.path.join(self.path, "metadata.csv"))
