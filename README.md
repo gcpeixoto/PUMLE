@@ -100,41 +100,9 @@ A typical workflow involves configuring the pipeline via a configuration diction
 
 Here’s an example script demonstrating usage:
 
-```python
-# main.py
-import os
-from pumle import Pumle  # Import from the installed package
-
-def set_root_path():
-    return os.path.dirname(os.path.abspath(__file__))
-
-# Define configuration including S3 settings and parameter caching
-config = {
-    "root_path": set_root_path(),
-    "selected_parameters": ["pres_ref"],
-    "variation_delta": 0.3,
-    "save_metadata": False,
-    "num_threads": 4,
-    "saving_method": "numpy",   # or "zarr"
-    "upload_to_s3": True,       # enable S3 upload
-    "s3_config": {
-        "bucket_name": "your-bucket-name",
-        "aws_access_key": "YOUR_ACCESS_KEY",
-        "aws_secret_key": "YOUR_SECRET_KEY",
-        "region_name": "us-east-1",
-    },
-    "metadata_path": "data_lake/metadata",
-    "parameters_variation_cache": os.path.join(set_root_path(), "parameters_cache.json"),
-}
-
-def main():
-    pipeline = Pumle(config=config)
-    pipeline.run(should_clean_older_files=True, layers_to_keep={"tabular_data"})
-
-if __name__ == "__main__":
-    main()
+```sh
+python main.py
 ```
-
 This example shows that after installation, a user simply imports the `Pumle` class from your package, configures it, and runs the pipeline. The caching in the parameter variation module ensures that simulations with previously run parameter combinations are skipped.
 
 ---
@@ -166,29 +134,6 @@ pumle_project/
         ├── tabular.py
         └── utils.py
 ```
-
-### Versioning
-
-PUMLE follows [Semantic Versioning](https://semver.org/) (MAJOR.MINOR.PATCH). The current version is defined in `src/pumle/__init__.py`:
-
-```python
-__version__ = "0.1.0"
-```
-
-When contributing:
-- Increment the **MAJOR** version for incompatible API changes.
-- Increment the **MINOR** version when adding functionality in a backward-compatible manner.
-- Increment the **PATCH** version for backward-compatible bug fixes.
-
-### Contributing Guidelines
-
-- **Fork and Clone:** Fork the repository and clone it locally.
-- **Create a Branch:** Create a feature or bugfix branch.
-- **Write Tests:** Include tests for your changes.
-- **Submit a Pull Request:** Ensure your pull request follows the coding standards and passes CI tests.
-- **Documentation:** Update the README or related docs if your changes affect usage.
-
----
 
 ## License
 
