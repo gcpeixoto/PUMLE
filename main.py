@@ -1,8 +1,11 @@
 import os
 import sqlite3
+import time
+from dotenv import load_dotenv
+
 from src.pumle.pumle import Pumle
 from src.pumle.db import DBManager
-from dotenv import load_dotenv
+
 
 load_dotenv()
 
@@ -64,7 +67,6 @@ def run_simulation():
         delta_var = float(delta_input)
     except ValueError:
         print("Invalid input for delta variation. Please enter a numeric value.")
-        input("Press Enter to continue...")
         return
 
     # 3) Ajustamos no CONFIG do pumle
@@ -78,7 +80,6 @@ def run_simulation():
     print("[INFO] Pre-process done. Starting simulations...")
     pumle.run_simulations()
     print("[INFO] Simulations finished.")
-    input("Press Enter to continue...")
 
 
 def persist_data():
@@ -95,7 +96,6 @@ def persist_data():
     print("[INFO] Saving consolidated data (silver->golden)...")
     if not pumle.configs:
         print("[INFO] No simulations found.")
-        input("Press Enter to continue...")
         return
     for conf in pumle.configs:
         sim_hash = conf["SimNums"]["sim_hash"]
@@ -105,7 +105,6 @@ def persist_data():
         pumle.save_data(sim_hash, result)
 
     print("[INFO] Data persisted successfully.")
-    input("Press Enter to continue...")
 
 
 def show_db():
@@ -161,9 +160,15 @@ def main_menu():
         choice = input("Select an option: ").strip()
 
         if choice == "1":
+            start_time = time.time()
             run_simulation()
+            print("--- %s seconds ---" % (time.time() - start_time))
+            input("Press Enter to continue...")
         elif choice == "2":
+            start_time = time.time()
             persist_data()
+            print("--- %s seconds ---" % (time.time() - start_time))
+            input("Press Enter to continue...")
         elif choice == "3":
             show_db()
         elif choice == "4":

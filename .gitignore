@@ -2,6 +2,7 @@
 *.mat
 *.log
 
+octave-workspace
 pumle.db
 .env
 .vscode
