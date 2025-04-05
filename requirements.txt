@@ -1,9 +1,9 @@
 numpy==1.26.4
 zarr>=2.9
 boto3>=1.17
-scipy>=1.4
+scipy
 pandas>=1.0
-pandera>=0.7.0
-python-dotenv>=0.15.0
-pyarrow>=4.0
-s3fs>=2021.10
+pandera
+python-dotenv
+pyarrow
+s3fs

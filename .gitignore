@@ -5,6 +5,8 @@
 octave-workspace
 pumle.db
 .env
+.venv
+venv
 .vscode
 data_lake/staging/*
 data_lake/silver_data/*
