@@ -142,46 +142,101 @@ class Pumle:
 
     def pre_process(self) -> List[Dict]:
         """Prepare simulation parameters and generate necessary files.
+        If variation_delta is 0, only the base parameters are used.
         
         Returns:
-            List of dictionaries containing simulation configurations
+            List of dictionaries containing simulation configurations (usually one if delta is 0)
         """
-        base_parameter = Ini(
+        self.logger.info("Starting pre-processing...")
+        ini_reader = Ini(
             self.root_path, 
             self.setup_ini, 
             self.params_schema
-        ).get_params()
+        )
+        base_parameter = ini_reader.get_params()
+        self.logger.debug("Base parameters loaded from INI.")
 
         self._validate_external_dependencies(base_parameter)
 
-        parameters_variation = ParametersVariation(
-            base_parameters=base_parameter,
-            selected_parameters=self.config.get("selected_parameters"),
-            variation_delta=self.config.get(
-                "variation_delta", 
-                self.DEFAULT_PARAMETER_VARIATION
-            ),
-        )
-        all_parameters = parameters_variation.generate_variations()
+        # --- Conditional Parameter Variation --- 
+        variation_delta = self.config.get("variation_delta", self.DEFAULT_PARAMETER_VARIATION)
+        selected_parameters = self.config.get("selected_parameters")
+        
+        all_parameters = []
+        if variation_delta == 0 or not selected_parameters:
+            if variation_delta == 0:
+                 self.logger.info("Variation delta is 0. Using only base parameters.")
+            else:
+                 self.logger.info("No parameters selected for variation. Using only base parameters.")
+            # Assign a default sim_id if needed, or ensure it exists in base_parameter
+            if "SimNums" not in base_parameter or "sim_id" not in base_parameter.get("SimNums", {}):
+                 if "SimNums" not in base_parameter:
+                     base_parameter["SimNums"] = {}
+                 base_parameter["SimNums"]["sim_id"] = 1 # Assign default ID 1
+                 self.logger.warning("Assigning default sim_id=1 to base parameters.")
+            all_parameters = [base_parameter]
+        else:
+            self.logger.info(f"Generating parameter variations with delta={variation_delta} for parameters: {selected_parameters}")
+            parameters_variation = ParametersVariation(
+                base_parameters=base_parameter,
+                selected_parameters=selected_parameters,
+                variation_delta=variation_delta,
+            )
+            all_parameters = parameters_variation.generate_variations()
+            self.logger.info(f"Generated {len(all_parameters)} parameter sets.")
+        # --- End Conditional Variation ---
 
+        if not all_parameters:
+            self.logger.error("No parameter configurations were generated. Aborting pre-process.")
+            raise ValueError("Parameter generation resulted in an empty list.")
+
+        generated_configs = []
         for params in all_parameters:
-            # Generate simulation hash and staging folder
+            # Generate simulation hash and staging folder from Fluid parameters
             fluid_params = params.get("Fluid", {})
+            if not fluid_params:
+                 self.logger.warning("Fluid parameters missing in a configuration set. Skipping hash generation.")
+                 continue # Or handle error appropriately
+                 
             sim_hash = generate_param_hash(fluid_params)
+            
+            # Ensure SimNums exists before accessing/setting
+            if "SimNums" not in params:
+                params["SimNums"] = {}
+                
             params["SimNums"]["sim_hash"] = sim_hash
             params["SimNums"]["staging_folder"] = f"staging_{sim_hash}"
-            sim_id = params["SimNums"]["sim_id"]
+            sim_id = params["SimNums"].get("sim_id", "N/A") # Use get for safety
 
-            # Insert into database
-            self.db.insert_simulation(sim_hash, sim_id, str(fluid_params))
+            # Insert into database (handle potential errors)
+            try:
+                self.db.insert_simulation(sim_hash, sim_id, str(fluid_params))
+            except Exception as db_err:
+                 self.logger.error(f"Failed to insert simulation {sim_hash} into DB: {db_err}. Skipping this configuration.")
+                 continue # Skip if DB insert fails
 
-            # Generate .mat files
-            mat_files = MatFiles(params)
-            mat_files.write()
-            self.logger.info(f"Generated .mat files for simulation {sim_hash}")
+            # Generate .mat files (handle potential errors)
+            try:
+                mat_files = MatFiles(params)
+                mat_files.write()
+                self.logger.info(f"Generated .mat files for simulation {sim_hash} (ID: {sim_id})")
+                generated_configs.append(params) # Add only if successful
+            except Exception as mat_err:
+                self.logger.error(f"Failed to generate .mat files for {sim_hash}: {mat_err}. Skipping this configuration.")
+                # Optionally update DB status to FAILED here
+                try:
+                    self.db.update_sim_status(sim_hash, SimulationStatus.FAILED)
+                except Exception as db_update_err:
+                    self.logger.error(f"Failed to update status to FAILED for {sim_hash} after .mat error: {db_update_err}")
 
-        self.configs = all_parameters
-        return all_parameters
+        self.configs = generated_configs # Store only successfully pre-processed configs
+        if not self.configs:
+             self.logger.error("Pre-processing completed, but no configurations were successfully processed.")
+             # Depending on desired behavior, maybe raise an error here
+        else:
+             self.logger.info(f"Pre-processing completed successfully for {len(self.configs)} configurations.")
+             
+        return self.configs
 
     def run_simulations(self) -> None:
         """Execute the simulation process."""

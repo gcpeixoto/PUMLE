@@ -390,7 +390,8 @@ function co2lab3DPUMLE(varargin)
     fluid.krG = @(s) fluid.krG(max((s - src)./(1 - src), 0));
     pe = PARAMS.Fluid.pe * kilo * Pascal;
     pcWG = @(sw) pe * sw.^(-1/2);
-    fluid.pcWG = @(sg) pcWG(max((1 - sg - srw)./(1 - srw), 1e-5));
+    eps_sat = 1e-6; % A small number
+    fluid.pcWG = @(sg) pcWG(max((1 - sg - srw)./(1 - srw), eps_sat));
 
     %% Initial State Setup with logging
     % fprintf('[EXECUTION] Setting initial state...\n');
@@ -424,8 +425,8 @@ function co2lab3DPUMLE(varargin)
     % fprintf('[EXECUTION] CO2_inj rate type: %s\n', class(PARAMS.Wells.CO2_inj));
     inj_rate = PARAMS.Wells.CO2_inj * meter^3 / year;
     W = [];
-    W = addWell(W, G, rock, cW{1}, ...
-                'refDepth', G.cells.centroids(cW{1}, 3), ...
+    W = addWell(W, G, rock, cW{2}, ...
+                'refDepth', G.cells.centroids(cW{2}, 3), ...
                 'type', 'rate', ...
                 'val', inj_rate, ...
                 'comp_i', [0 1]);
