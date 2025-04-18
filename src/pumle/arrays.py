@@ -12,8 +12,9 @@ from dataclasses import dataclass
 import numpy as np
 import zarr
 
-from src.pumle.utils import read_json, setup_logger
+from src.pumle.utils import read_json, setup_logger, params_to_filename_string
 from src.pumle.cloud_storage import CloudStorage
+from src.pumle.db import DBManager
 
 
 @dataclass
@@ -63,7 +64,7 @@ class Arrays:
                     as returned by SimResultsParser.get_all().
             
         Returns:
-            Tuple of (pressure, water_saturation, gas_saturation) 
+            Tuple of (pressure, brine_saturation, gas_saturation) 
             arrays, each with shape (i, j, k, num_timesteps).
             
         Raises:
@@ -204,7 +205,11 @@ class Arrays:
         Returns:
             Formatted name
         """
-        return name.split("_")[0]
+        # Keep the parameter string, remove only the data type prefix
+        parts = name.split('_')
+        if parts[0] in ['pressure', 'brine', 'gas']:
+             return '_'.join(parts[1:]) # Return the parameter string part
+        return name # Fallback
 
     def save_golden_data(
         self,
@@ -212,7 +217,7 @@ class Arrays:
         result: Optional[List[Dict[str, Any]]] = None,
         config: Optional[ArrayConfig] = None
     ) -> List[Tuple[str, Path]]:
-        """Consolidate, save simulation data, and optionally upload to S3.
+        """Consolidate, save simulation data using parameter-based filenames, and optionally upload to S3.
         
         Args:
             sim_id: Simulation hash identifier
@@ -230,14 +235,28 @@ class Arrays:
              raise ArraysError("Result data cannot be None for saving.")
              
         try:
-            # Consolidate data using the refactored method
+            # Consolidate data
             p_final, sw_final, sg_final = self.consolidate_all_data(result)
             
-            # Prepare data for saving
+            # --- Get descriptive filename suffix from parameters --- 
+            filename_suffix = sim_id # Default to hash as fallback
+            try:
+                db_manager = DBManager() # Assumes default DB path
+                fluid_params = db_manager.get_fluid_params_by_hash(sim_id)
+                if fluid_params:
+                    filename_suffix = params_to_filename_string(fluid_params)
+                    self.logger.info(f"Using parameter string for filenames: {filename_suffix}")
+                else:
+                    self.logger.warning(f"Could not find fluid params for hash {sim_id}. Falling back to hash for filename.")
+            except Exception as db_err:
+                self.logger.error(f"Error retrieving fluid params for hash {sim_id}: {db_err}. Falling back to hash.", exc_info=True)
+            # --- End filename suffix generation ---
+
+            # Prepare data for saving using the generated suffix
             to_save = {
-                f"pressure_{sim_id}": p_final,
-                f"water_saturation_{sim_id}": sw_final,
-                f"gas_saturation_{sim_id}": sg_final,
+                f"pressure_{filename_suffix}": p_final,
+                f"brine_saturation_{filename_suffix}": sw_final,
+                f"gas_saturation_{filename_suffix}": sg_final,
             }
             
             # Select save engine
@@ -264,8 +283,10 @@ class Arrays:
                     
                 storage = CloudStorage(**config.s3_config)
                 for name, file_path in saved_files:
-                    # Example S3 path structure: consolidated/<type>/<filename>
-                    s3_key = f"consolidated/{self.format_name(name)}/{file_path.name}"
+                    # Example S3 path structure: consolidated/<param_string>/<filename> 
+                    # (format_name needs adjustment if suffix is param string)
+                    s3_key = f"consolidated/{file_path.stem}/{file_path.name}" # Simplified S3 key
+                    # s3_key = f"consolidated/{self.format_name(name)}/{file_path.name}" # Old format_name logic might need update
                     self.logger.info(f"Uploading {file_path} to s3://{storage.bucket_name}/{s3_key}")
                     storage.upload_file(str(file_path), s3_key)
                     self.logger.info(f"Successfully uploaded to {s3_key}")
@@ -274,5 +295,4 @@ class Arrays:
             
         except Exception as e:
             self.logger.error(f"Failed to save golden data for sim_id {sim_id}: {e}", exc_info=True)
-            # Re-raise as ArraysError for consistent error handling upstream
             raise ArraysError(f"Failed to save golden data: {e}")

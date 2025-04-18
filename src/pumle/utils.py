@@ -26,17 +26,26 @@ class UtilsError(Exception):
     pass
 
 
-def setup_logger(name: str = "pumle.utils") -> logging.Logger:
+def setup_logger(name: str = "pumle.utils", level: int = logging.DEBUG) -> logging.Logger:
     """Configure and return a logger instance.
     
     Args:
         name: Logger name
+        level: Logging level
         
     Returns:
         logging.Logger: Configured logger instance
     """
     logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(level)
+    # Avoid adding handlers if they already exist
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
     return logger
 
 
@@ -158,8 +167,9 @@ def write_json(
         # Ensure parent directory exists
         json_path.parent.mkdir(parents=True, exist_ok=True)
         
+        processed_data = convert_ndarray(data)  # Ensure numpy arrays are converted
         with open(json_path, "w", encoding=encoding) as file:
-            json.dump(data, file, indent=indent)
+            json.dump(processed_data, file, indent=indent)
         logger.debug(f"Successfully wrote JSON file: {json_path}")
     except Exception as e:
         logger.error(f"Failed to write JSON file {json_path}: {e}")
@@ -185,3 +195,48 @@ def validate_path(path: Union[str, Path]) -> Path:
         return path
     except Exception as e:
         raise UtilsError(f"Path validation failed: {e}")
+
+
+def params_to_filename_string(params_dict: Dict[str, Any], max_length: int = 100) -> str:
+    """Converts a dictionary of parameters into a concise, filename-safe string.
+    
+    Args:
+        params_dict: Dictionary of parameters (e.g., fluid parameters).
+        max_length: Approximate maximum length for the resulting string.
+        
+    Returns:
+        A string suitable for use in filenames.
+    """
+    if not isinstance(params_dict, dict):
+        return "invalid_params"
+
+    parts = []
+    # Sort keys for consistent filenames
+    sorted_keys = sorted(params_dict.keys())
+    
+    current_length = 0
+    for key in sorted_keys:
+        value = params_dict[key]
+        # Format value to be filename-safe
+        if isinstance(value, float):
+            # Use scientific notation for floats, replace '.' with 'p', '+' with '', '-' with 'm'
+            val_str = f"{value:.2e}".replace('.', 'p').replace('+', '').replace('-', 'm')
+        else:
+            # Convert other types to string, remove/replace unsafe chars
+            val_str = str(value).replace(" ", "_").replace("/", "-")
+            # Basic sanitation for other potential unsafe characters
+            val_str = ''.join(c for c in val_str if c.isalnum() or c in ['_', '-'])
+
+        part = f"{key}_{val_str}"
+        
+        # Check length before adding
+        if current_length + len(part) + 1 > max_length and len(parts) > 0:
+            break # Stop adding parts if exceeding max length (ensure at least one part)
+            
+        parts.append(part)
+        current_length += len(part) + 1 # +1 for the underscore separator
+
+    if not parts:
+        return "no_params"
+        
+    return "_".join(parts)

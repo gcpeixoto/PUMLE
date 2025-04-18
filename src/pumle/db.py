@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Optional, Tuple, Any, Dict
 from contextlib import contextmanager
 import logging
+import ast
 
 # SQL Queries
 CREATE_TABLE_SIM = """
@@ -175,3 +176,34 @@ class DBManager:
         except sqlite3.Error as e:
             self.logger.error(f"Failed to retrieve simulation {sim_hash}: {e}")
             raise
+
+    def get_fluid_params_by_hash(self, sim_hash: str) -> Optional[Dict[str, Any]]:
+        """Retrieve and parse the fluid_params dictionary for a given simulation hash."""
+        query = "SELECT fluid_params FROM simulations WHERE sim_hash = ?"
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.execute(query, (sim_hash,))
+                row = cursor.fetchone()
+            
+            if row and row[0]:
+                params_str = row[0]
+                try:
+                    # Use ast.literal_eval for safe parsing of the dict string
+                    params_dict = ast.literal_eval(params_str)
+                    if isinstance(params_dict, dict):
+                        self.logger.debug(f"Retrieved fluid parameters for hash {sim_hash}.")
+                        return params_dict
+                    else:
+                        # This case should ideally not happen if stored correctly
+                        self.logger.error(f"Parsed fluid_params for hash {sim_hash} is not a dict: {type(params_dict)}")
+                        return None
+                except (ValueError, SyntaxError) as parse_error:
+                    self.logger.error(f"Failed to parse fluid_params string for hash {sim_hash}: {parse_error}")
+                    self.logger.debug(f"Invalid string was: {params_str}")
+                    return None
+            else:
+                self.logger.warning(f"No fluid_params found in database for sim_hash: {sim_hash}")
+                return None
+        except sqlite3.Error as e:
+            self.logger.error(f"Database error getting fluid_params for hash {sim_hash}: {e}")
+            return None
