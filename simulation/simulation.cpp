@@ -1,4 +1,3 @@
-// simulation.cpp
 #include <algorithm>
 #include <iostream>
 #include <vector>
@@ -20,6 +19,16 @@ int run_simulation(const std::string& folder) {
         return 0; // pular
     }
 
+    // Get current directory for script path
+    std::string current_dir = fs::current_path().string();
+    std::string script_path = current_dir + "/simulation/co2lab3DPUMLE.m";
+
+    // Check if script exists
+    if (!fs::exists(script_path)) {
+        std::cerr << "[ERROR] Script file not found: " << script_path << "\n";
+        return 1;
+    }
+
     // Precisamos dos 10 .mat?
     // ex.: "Fluid_<hash>.mat", "Schedule_<hash>.mat" ...
     // Montamos o comando do Octave:
@@ -36,7 +45,9 @@ int run_simulation(const std::string& folder) {
     // std::string hash = baseName.substr(8); // remove "staging_"
 
     // Constrói o comando Octave
-    std::string command = "octave --eval \"co2lab3DPUMLE(";
+    std::string command = "octave --eval \"addpath('" + current_dir + "/simulation'); ";
+    command += "co2lab3DPUMLE(";
+    
     for (const auto& prefix : param_files) {
         // ex: folder + "/Fluid_abc12345.mat"
         // Precisamos saber qual hash? Vamos supor que folder = ".../staging_abc12345"
@@ -80,15 +91,20 @@ int run_simulation(const std::string& folder) {
 }
 
 int main(int argc, char* argv[]) {
-    // Garante que compile com: g++ simulation.cpp -o simulationCompiled.out -fopenmp
+    // Get current directory
     std::string current_path = fs::current_path().string();
-    std::string data_lake_path = "/data_lake/staging/";
-    std::string directory = current_path + data_lake_path;
+    std::string data_lake_path = "data_lake/staging/";
+    std::string directory = current_path + "/" + data_lake_path;
+
+    // Create staging directory if it doesn't exist
+    if (!fs::exists(directory)) {
+        fs::create_directories(directory);
+    }
 
     std::vector<std::string> folders;
     for (const auto& entry : fs::directory_iterator(directory)) {
         if (entry.is_directory()) {
-            std::string dirname = entry.path().filename().string(); // ex: "staging_abc12345"
+            std::string dirname = entry.path().filename().string();
             if (dirname.rfind("staging_", 0) == 0) {
                 folders.push_back(entry.path().string());
             }
@@ -100,13 +116,13 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Simplesmente ordena lexicograficamente (hash, etc.)
+    // Sort folders
     std::sort(folders.begin(), folders.end());
 
     int num_simulations = (int) folders.size();
     std::cout << "[INFO] Found " << num_simulations << " staging folders." << std::endl;
 
-    // se passamos via argv
+    // Get thread count from command line
     int threads = 4; 
     if (argc > 1) {
         threads = std::stoi(argv[1]);
@@ -114,8 +130,6 @@ int main(int argc, char* argv[]) {
     omp_set_num_threads(threads);
 
     std::cout << "[INFO] Using " << threads << " threads.\n";
-
-    chdir("./simulation/");
 
     int global_status = 0;
 
@@ -129,8 +143,6 @@ int main(int argc, char* argv[]) {
             }
         }
     }
-
-    chdir("../");
 
     if (global_status != 0) {
         std::cerr << "[ERROR] One or more simulations failed.\n";

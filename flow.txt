@@ -1,0 +1,70 @@
+Main Program Flow:
+1. main.py
+   ├── Load environment variables
+   ├── Initialize Pumle instance
+   └── Display menu
+      ├── Option 1: Run Simulation
+      │   ├── Create data lake structure
+      │   ├── Get user parameters
+      │   ├── Configure Pumle
+      │   ├── Run pre_process()
+      │   └── Run run_simulations()
+      │
+      ├── Option 2: Persist Data
+      │   ├── For each simulation config:
+      │   │   ├── Run post_process()
+      │   │   └── Run save_data()
+      │   └── Update database
+      │
+      ├── Option 3: Show Database
+      │   └── Display simulation records
+      │
+      └── Option 4: Clean Old Files
+          └── Remove old simulation files
+
+Simulation Flow:
+1. pre_process()
+   ├── Validate parameters
+   ├── Generate parameter variations
+   └── Prepare simulation files
+
+2. run_simulations()
+   ├── For each parameter variation:
+   │   ├── Generate simulation hash
+   │   ├── Create simulation directory
+   │   ├── Write parameter files
+   │   ├── Run simulation (Octave)
+   │   └── Update database status
+   └── Wait for completion
+
+3. post_process()
+   ├── Parse simulation results
+   ├── Extract grid dimensions
+   ├── Process active cells
+   └── Generate output files
+
+4. save_data()
+   ├── Convert results to JSON
+   ├── Save to local storage
+   └── Optionally upload to S3
+
+Data Flow:
+1. Parameter Generation
+   ├── User selects parameters
+   ├── ParameterVariation generates variations
+   └── Variations saved as JSON files
+
+2. Simulation Execution
+   ├── Parameter files read by Octave
+   ├── Simulation runs in Octave
+   └── Results saved as JSON files
+
+3. Result Processing
+   ├── SimResultsParser reads JSON files
+   ├── Data converted to numpy arrays
+   └── Results saved in data lake
+
+4. Data Persistence
+   ├── Results saved to local storage
+   ├── Metadata stored in database
+   └── Optionally uploaded to S3

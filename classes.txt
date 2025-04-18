@@ -1,0 +1,40 @@
++------------------------+       +------------------------+       +------------------------+
+|        Pumle           |       |      DBManager         |       |   SimResultsParser    |
++------------------------+       +------------------------+       +------------------------+
+| - config: Dict         |       | - db_path: Path        |       | - results_path: Path  |
+| - logger: Logger       |       | - logger: Logger       |       | - sim_hash: str       |
++------------------------+       +------------------------+       +------------------------+
+| + pre_process()        |       | + connect()            |       | + get_dimensions()    |
+| + run_simulations()    |       | + insert_simulation()  |       | + get_active_cells()  |
+| + post_process()       |       | + update_sim_status()  |       | + get_states()        |
+| + save_data()          |       | + get_sim_by_hash()    |       | + get_all()           |
+| + clean_older_files()  |       +------------------------+       | + save_all()          |
++------------------------+                                         +------------------------+
+
++------------------------+       +------------------------+       +------------------------+
+|    ParameterVariation  |       |      Parameters        |       |     CloudStorage      |
++------------------------+       +------------------------+       +------------------------+
+| - parameters: Dict     |       | - pres_ref: float      |       | - s3_client: Any      |
+| - logger: Logger       |       | - temp_ref: float      |       | - bucket_name: str    |
++------------------------+       | - cp_rock: float       |       | - logger: Logger      |
+| + add_parameter()      |       | - srw: float           |       +------------------------+
+| + generate_variations()|       | - src: float           |       | + upload_file()       |
+| + save_variations()    |       | - pe: float            |       | + download_file()     |
+| + load_variations()    |       | - xnacl: float         |       | + list_files()        |
++------------------------+       | - rho_h2o: float       |       +------------------------+
+                                +------------------------+
+                                | + get_limits()         |
+                                | + is_valid()           |
+                                +------------------------+
+
++------------------------+
+|    SimulationResults   |
++------------------------+
+| - states: List[Dict]   |
+| - grid_dims: np.ndarray|
+| - active_cells: np.array|
+| - metadata: Dict       |
++------------------------+
+| + num_states()         |
+| + active_cell_count()  |
++------------------------+

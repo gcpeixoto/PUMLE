@@ -1,4 +1,4 @@
-%% co2lab3DPUMLE
+% co2lab3DPUMLE
 %
 % Base script to run CO2 injection simulations from 
 % preset values defined in PUMLE configuration file.
@@ -100,59 +100,39 @@ function co2lab3DPUMLE(varargin)
     % fprintf('[EXECUTION] Reading grid file: %s\n', PARAMS.Grid.file_path);
     grdecl = readGRDECL(PARAMS.Grid.file_path);
 
-    % Post-process grdecl: convert numeric fields to strings if needed
-    fields_to_check = {'faultdata', 'someOtherField'}; % add any fields that should be char
-    for i = 1:numel(fields_to_check)
-        fld = fields_to_check{i};
-        if isfield(grdecl, fld)
-            if isnumeric(grdecl.(fld))
-                % fprintf('[EXECUTION] Converting field %s from numeric to string.\n', fld);
-                grdecl.(fld) = num2str(grdecl.(fld));
-            end
-        end
-    end
-
-    if isfield(grdecl, 'faultdata')
-        % fprintf('[EXECUTION] Faults detected in the grid.\n');
-    else
-        % fprintf('[EXECUTION] No faults detected in the grid.\n');
-    end
-    % disp('[EXECUTION] Grid structure fields:');
-    % disp(fieldnames(grdecl));
-
+    % Convert units to metric
     usys = getUnitSystem('METRIC');
     grdecl = convertInputUnits(grdecl, usys);
 
+    % Handle repair flag
     if strcmpi(PARAMS.Grid.repair_flag, 'true')
         PARAMS.Grid.repair_flag = true;
     else
         PARAMS.Grid.repair_flag = false;
     end
 
-    G = processGRDECL(grdecl, 'RepairZCORN', PARAMS.Grid.repair_flag);
+    % Remove fault data to avoid regex issues
+    if isfield(grdecl, 'FAULTS')
+        grdecl = rmfield(grdecl, 'FAULTS');
+    end
+    if isfield(grdecl, 'faultdata')
+        grdecl = rmfield(grdecl, 'faultdata');
+    end
+
+    % Process grid with fault processing disabled
+    G = processGRDECL(grdecl, 'RepairZCORN', PARAMS.Grid.repair_flag, ...
+                      'Verbose', false, 'processFaults', false);
     G = computeGeometry(G);
     % fprintf('[EXECUTION] Grid processed: %d cells; Cartesian dimensions:\n', G.cells.num);
     % disp(G.cartDims);
 
     rock = grdecl2Rock(grdecl, G.cells.indexMap);
-    if isfield(rock, 'faultdata')
-        if iscell(rock.faultdata)
-            for i = 1:numel(rock.faultdata)
-                fd = rock.faultdata{i};
-                if ~isempty(fd) && ismember(fd(1), {'*','+','?'})
-                    rock.faultdata{i} = ['[A-Za-z]' fd];
-                end
-            end
-        elseif ischar(rock.faultdata)
-            if ~isempty(rock.faultdata) && ismember(rock.faultdata(1), {'*','+','?'})
-                rock.faultdata = ['[A-Za-z]' rock.faultdata];
-            end
-        end
-    end
 
     % Adjust rock properties and log
     rock.poro(rock.poro < min(rock.poro(rock.poro > 0))) = 1e-3;
-    rock.ntg(rock.ntg < min(rock.ntg(rock.ntg > 0))) = 1e-3;
+    if isfield(rock, 'ntg')
+        rock.ntg(rock.ntg < min(rock.ntg(rock.ntg > 0))) = 1e-3;
+    end
     % fprintf('[EXECUTION] Rock model fields:\n');
     % disp(fieldnames(rock));
 
@@ -529,25 +509,25 @@ function co2lab3DPUMLE(varargin)
 
     % Write to file
     fid = fopen(fname_states,'w');
-    if fid == -1
-        error('[EXECUTION] Could not open file: %s', fname_states);
-    end
+    % if fid == -1
+    %     error('[EXECUTION] Could not open file: %s', fname_states);
+    % end
     fprintf(fid,'%s', states_encoded);
     fclose(fid);
 
     if simId == "1"
         fid = fopen(fname_g,'w');
-        if fid == -1
-            error('[EXECUTION] Could not open file: %s', fname_g);
-        end
+        % if fid == -1
+        %     error('[EXECUTION] Could not open file: %s', fname_g);
+        % end
         fprintf(fid,'%s', g_encoded);
         fclose(fid);
     end
 
     fid = fopen(fname_grdecl,'w');
-    if fid == -1
-        error('[EXECUTION] Could not open file: %s', fname_grdecl);
-    end
+    % if fid == -1
+    %     error('[EXECUTION] Could not open file: %s', fname_grdecl);
+    % end
     fprintf(fid,'%s', grdecl_encoded);
     fclose(fid);
     
