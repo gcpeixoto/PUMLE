@@ -1,4 +1,4 @@
-%% co2lab3DPUMLE
+% co2lab3DPUMLE
 %
 % Base script to run CO2 injection simulations from 
 % preset values defined in PUMLE configuration file.
@@ -100,59 +100,39 @@ function co2lab3DPUMLE(varargin)
     % fprintf('[EXECUTION] Reading grid file: %s\n', PARAMS.Grid.file_path);
     grdecl = readGRDECL(PARAMS.Grid.file_path);
 
-    % Post-process grdecl: convert numeric fields to strings if needed
-    fields_to_check = {'faultdata', 'someOtherField'}; % add any fields that should be char
-    for i = 1:numel(fields_to_check)
-        fld = fields_to_check{i};
-        if isfield(grdecl, fld)
-            if isnumeric(grdecl.(fld))
-                % fprintf('[EXECUTION] Converting field %s from numeric to string.\n', fld);
-                grdecl.(fld) = num2str(grdecl.(fld));
-            end
-        end
-    end
-
-    if isfield(grdecl, 'faultdata')
-        % fprintf('[EXECUTION] Faults detected in the grid.\n');
-    else
-        % fprintf('[EXECUTION] No faults detected in the grid.\n');
-    end
-    % disp('[EXECUTION] Grid structure fields:');
-    % disp(fieldnames(grdecl));
-
+    % Convert units to metric
     usys = getUnitSystem('METRIC');
     grdecl = convertInputUnits(grdecl, usys);
 
+    % Handle repair flag
     if strcmpi(PARAMS.Grid.repair_flag, 'true')
         PARAMS.Grid.repair_flag = true;
     else
         PARAMS.Grid.repair_flag = false;
     end
 
-    G = processGRDECL(grdecl, 'RepairZCORN', PARAMS.Grid.repair_flag);
+    % Remove fault data to avoid regex issues
+    if isfield(grdecl, 'FAULTS')
+        grdecl = rmfield(grdecl, 'FAULTS');
+    end
+    if isfield(grdecl, 'faultdata')
+        grdecl = rmfield(grdecl, 'faultdata');
+    end
+
+    % Process grid with fault processing disabled
+    G = processGRDECL(grdecl, 'RepairZCORN', PARAMS.Grid.repair_flag, ...
+                      'Verbose', false, 'processFaults', false);
     G = computeGeometry(G);
     % fprintf('[EXECUTION] Grid processed: %d cells; Cartesian dimensions:\n', G.cells.num);
     % disp(G.cartDims);
 
     rock = grdecl2Rock(grdecl, G.cells.indexMap);
-    if isfield(rock, 'faultdata')
-        if iscell(rock.faultdata)
-            for i = 1:numel(rock.faultdata)
-                fd = rock.faultdata{i};
-                if ~isempty(fd) && ismember(fd(1), {'*','+','?'})
-                    rock.faultdata{i} = ['[A-Za-z]' fd];
-                end
-            end
-        elseif ischar(rock.faultdata)
-            if ~isempty(rock.faultdata) && ismember(rock.faultdata(1), {'*','+','?'})
-                rock.faultdata = ['[A-Za-z]' rock.faultdata];
-            end
-        end
-    end
 
     % Adjust rock properties and log
     rock.poro(rock.poro < min(rock.poro(rock.poro > 0))) = 1e-3;
-    rock.ntg(rock.ntg < min(rock.ntg(rock.ntg > 0))) = 1e-3;
+    if isfield(rock, 'ntg')
+        rock.ntg(rock.ntg < min(rock.ntg(rock.ntg > 0))) = 1e-3;
+    end
     % fprintf('[EXECUTION] Rock model fields:\n');
     % disp(fieldnames(rock));
 
@@ -410,7 +390,8 @@ function co2lab3DPUMLE(varargin)
     fluid.krG = @(s) fluid.krG(max((s - src)./(1 - src), 0));
     pe = PARAMS.Fluid.pe * kilo * Pascal;
     pcWG = @(sw) pe * sw.^(-1/2);
-    fluid.pcWG = @(sg) pcWG(max((1 - sg - srw)./(1 - srw), 1e-5));
+    eps_sat = 1e-6; % Ensure a small epsilon for Pc stability
+    fluid.pcWG = @(sg) pcWG(max((1 - sg - srw)./(1 - srw), eps_sat));
 
     %% Initial State Setup with logging
     % fprintf('[EXECUTION] Setting initial state...\n');
@@ -444,8 +425,8 @@ function co2lab3DPUMLE(varargin)
     % fprintf('[EXECUTION] CO2_inj rate type: %s\n', class(PARAMS.Wells.CO2_inj));
     inj_rate = PARAMS.Wells.CO2_inj * meter^3 / year;
     W = [];
-    W = addWell(W, G, rock, cW{1}, ...
-                'refDepth', G.cells.centroids(cW{1}, 3), ...
+    W = addWell(W, G, rock, cW{2}, ...
+                'refDepth', G.cells.centroids(cW{2}, 3), ...
                 'type', 'rate', ...
                 'val', inj_rate, ...
                 'comp_i', [0 1]);
@@ -463,21 +444,47 @@ function co2lab3DPUMLE(varargin)
     bc = addBC(bc, bc_face_ix, PARAMS.BoundaryConditions.type, p_face_pressure, 'sat', [1, 0]);
     % fprintf('[EXECUTION] Boundary conditions set for %d faces.\n', numel(bc_face_ix));
 
-    %% Schedule Setup with logging
-    % fprintf('[EXECUTION] Setting simulation schedule...\n');
+    %% Schedule Setup with logging (Using Rampup for Injection)
+    fprintf('[EXECUTION] Setting simulation schedule (Rampup Injection)...\n');
 
-    steps_injection = PARAMS.Schedule.injection_timesteps;
+    % --- Injection Period using rampupTimesteps --- 
+    total_injection_time = PARAMS.Schedule.injection_time * year;
+    if isfield(PARAMS.Schedule, 'injection_rampup_dt_initial')
+        initial_dt = PARAMS.Schedule.injection_rampup_dt_initial * year;
+        % Set a maximum timestep during injection (e.g., 1-2 years) to prevent excessive growth
+        % max_dt_inj = 1.5 * year; 
+        % Call rampupTimesteps without the potentially problematic 'maxTimestep' option
+        dT_injection = rampupTimesteps(total_injection_time, initial_dt);
+        fprintf('  Injection: Rampup target initial dT = %.2f days (%d steps generated)\n', initial_dt/day, numel(dT_injection));
+    else
+         % Fallback to constant steps if rampup parameter missing
+         warning('injection_rampup_dt_initial not found in Schedule params. Falling back to 5 constant injection steps.');
+         steps_injection = 5; % Fallback value
+         dT_injection = ones(steps_injection, 1) * (total_injection_time / steps_injection);
+         fprintf('  Injection: Fallback to %d constant steps (dT = %.2f years)\n', steps_injection, dT_injection(1)/year);
+    end
+
+    % --- Migration Period (using constant steps) --- 
+    total_migration_time = PARAMS.Schedule.migration_time * year;
     steps_migration = PARAMS.Schedule.migration_timesteps;
-    dT_injection = PARAMS.Schedule.injection_time * year / steps_injection;
-    dT_migration = PARAMS.Schedule.migration_time * year / steps_migration;
-    vec_injection = ones(steps_injection, 1) * dT_injection;
+    if steps_migration <= 0 
+        error('migration_timesteps must be positive.');
+    end
+    dT_migration = total_migration_time / steps_migration;
     vec_migration = ones(steps_migration, 1) * dT_migration;
-    schedule.step.val = [vec_injection; vec_migration];
-    schedule.step.control = [ones(steps_injection, 1); ones(steps_migration, 1)*2];
-    schedule.control    = struct('W', W, 'bc', bc);
-    schedule.control(2) = struct('W', W, 'bc', bc);
-    schedule.control(2).W.val = 0;
-    % fprintf('[EXECUTION] Schedule set with %d timesteps.\n', numel(schedule.step.val));
+    fprintf('  Migration: %d constant steps (dT = %.2f years)\n', steps_migration, dT_migration/year);
+
+    % Combine step values
+    schedule.step.val = [dT_injection; vec_migration];
+    % Assign controls (1 for injection, 2 for migration/shut-in)
+    schedule.step.control = [ones(numel(dT_injection), 1); ones(steps_migration, 1)*2];
+
+    % Define controls (wells, BCs) for each period
+    schedule.control    = struct('W', W, 'bc', bc); % Control for period 1
+    schedule.control(2) = struct('W', W, 'bc', bc); % Control for period 2
+    schedule.control(2).W.val = 0; % Shut-in well for period 2
+
+    fprintf('  Total schedule set with %d timesteps.\n', numel(schedule.step.val));
 
     %% Model Setup and Simulation with logging and error handling
     % fprintf('[EXECUTION] Initializing TwoPhaseWaterGasModel...\n');
@@ -529,25 +536,25 @@ function co2lab3DPUMLE(varargin)
 
     % Write to file
     fid = fopen(fname_states,'w');
-    if fid == -1
-        error('[EXECUTION] Could not open file: %s', fname_states);
-    end
+    % if fid == -1
+    %     error('[EXECUTION] Could not open file: %s', fname_states);
+    % end
     fprintf(fid,'%s', states_encoded);
     fclose(fid);
 
     if simId == "1"
         fid = fopen(fname_g,'w');
-        if fid == -1
-            error('[EXECUTION] Could not open file: %s', fname_g);
-        end
+        % if fid == -1
+        %     error('[EXECUTION] Could not open file: %s', fname_g);
+        % end
         fprintf(fid,'%s', g_encoded);
         fclose(fid);
     end
 
     fid = fopen(fname_grdecl,'w');
-    if fid == -1
-        error('[EXECUTION] Could not open file: %s', fname_grdecl);
-    end
+    % if fid == -1
+    %     error('[EXECUTION] Could not open file: %s', fname_grdecl);
+    % end
     fprintf(fid,'%s', grdecl_encoded);
     fclose(fid);
     
