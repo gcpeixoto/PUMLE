@@ -390,7 +390,7 @@ function co2lab3DPUMLE(varargin)
     fluid.krG = @(s) fluid.krG(max((s - src)./(1 - src), 0));
     pe = PARAMS.Fluid.pe * kilo * Pascal;
     pcWG = @(sw) pe * sw.^(-1/2);
-    eps_sat = 1e-6; % A small number
+    eps_sat = 1e-6; % Ensure a small epsilon for Pc stability
     fluid.pcWG = @(sg) pcWG(max((1 - sg - srw)./(1 - srw), eps_sat));
 
     %% Initial State Setup with logging
@@ -444,21 +444,47 @@ function co2lab3DPUMLE(varargin)
     bc = addBC(bc, bc_face_ix, PARAMS.BoundaryConditions.type, p_face_pressure, 'sat', [1, 0]);
     % fprintf('[EXECUTION] Boundary conditions set for %d faces.\n', numel(bc_face_ix));
 
-    %% Schedule Setup with logging
-    % fprintf('[EXECUTION] Setting simulation schedule...\n');
+    %% Schedule Setup with logging (Using Rampup for Injection)
+    fprintf('[EXECUTION] Setting simulation schedule (Rampup Injection)...\n');
 
-    steps_injection = PARAMS.Schedule.injection_timesteps;
+    % --- Injection Period using rampupTimesteps --- 
+    total_injection_time = PARAMS.Schedule.injection_time * year;
+    if isfield(PARAMS.Schedule, 'injection_rampup_dt_initial')
+        initial_dt = PARAMS.Schedule.injection_rampup_dt_initial * year;
+        % Set a maximum timestep during injection (e.g., 1-2 years) to prevent excessive growth
+        % max_dt_inj = 1.5 * year; 
+        % Call rampupTimesteps without the potentially problematic 'maxTimestep' option
+        dT_injection = rampupTimesteps(total_injection_time, initial_dt);
+        fprintf('  Injection: Rampup target initial dT = %.2f days (%d steps generated)\n', initial_dt/day, numel(dT_injection));
+    else
+         % Fallback to constant steps if rampup parameter missing
+         warning('injection_rampup_dt_initial not found in Schedule params. Falling back to 5 constant injection steps.');
+         steps_injection = 5; % Fallback value
+         dT_injection = ones(steps_injection, 1) * (total_injection_time / steps_injection);
+         fprintf('  Injection: Fallback to %d constant steps (dT = %.2f years)\n', steps_injection, dT_injection(1)/year);
+    end
+
+    % --- Migration Period (using constant steps) --- 
+    total_migration_time = PARAMS.Schedule.migration_time * year;
     steps_migration = PARAMS.Schedule.migration_timesteps;
-    dT_injection = PARAMS.Schedule.injection_time * year / steps_injection;
-    dT_migration = PARAMS.Schedule.migration_time * year / steps_migration;
-    vec_injection = ones(steps_injection, 1) * dT_injection;
+    if steps_migration <= 0 
+        error('migration_timesteps must be positive.');
+    end
+    dT_migration = total_migration_time / steps_migration;
     vec_migration = ones(steps_migration, 1) * dT_migration;
-    schedule.step.val = [vec_injection; vec_migration];
-    schedule.step.control = [ones(steps_injection, 1); ones(steps_migration, 1)*2];
-    schedule.control    = struct('W', W, 'bc', bc);
-    schedule.control(2) = struct('W', W, 'bc', bc);
-    schedule.control(2).W.val = 0;
-    % fprintf('[EXECUTION] Schedule set with %d timesteps.\n', numel(schedule.step.val));
+    fprintf('  Migration: %d constant steps (dT = %.2f years)\n', steps_migration, dT_migration/year);
+
+    % Combine step values
+    schedule.step.val = [dT_injection; vec_migration];
+    % Assign controls (1 for injection, 2 for migration/shut-in)
+    schedule.step.control = [ones(numel(dT_injection), 1); ones(steps_migration, 1)*2];
+
+    % Define controls (wells, BCs) for each period
+    schedule.control    = struct('W', W, 'bc', bc); % Control for period 1
+    schedule.control(2) = struct('W', W, 'bc', bc); % Control for period 2
+    schedule.control(2).W.val = 0; % Shut-in well for period 2
+
+    fprintf('  Total schedule set with %d timesteps.\n', numel(schedule.step.val));
 
     %% Model Setup and Simulation with logging and error handling
     % fprintf('[EXECUTION] Initializing TwoPhaseWaterGasModel...\n');

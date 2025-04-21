@@ -14,7 +14,7 @@ data_lake/bronze_data/*
 data_lake/golden_data/*
 data_lake/metadata/*
 resources/cache/*
-notebooks
+notebooks_test
 .DS_Store
 .ipynb_checkpoints/
 ipynb/figures/
